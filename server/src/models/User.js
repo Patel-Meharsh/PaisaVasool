@@ -38,6 +38,12 @@ const userSchema = new mongoose.Schema(
             type: String,
             enum: ["customer", "admin"],
             default: "customer"
+        },
+
+        // Indicates whether the user's email has been verified
+        isEmailVerified: {
+            type: Boolean,
+            default: false
         }
     },
 
@@ -49,11 +55,11 @@ const userSchema = new mongoose.Schema(
 
 
 // Hash the password before saving the user
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function() {
 
     // If password hasn't been changed, don't hash it again
     if (!this.isModified("password")) {
-        return next();
+        return;
     }
 
     // Generate a salt
@@ -62,7 +68,6 @@ userSchema.pre("save", async function (next) {
     // Hash the password
     this.password = await bcrypt.hash(this.password, salt);
 
-    next();
 });
 
 

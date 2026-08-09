@@ -14,6 +14,8 @@ const app = express();
 // If PORT is not provided, use 5000
 const PORT = process.env.PORT || 5000;
 
+// Import authentication routes
+const authRoutes = require("./src/routes/authRoutes");
 
 // --------------------------------------------------
 // MIDDLEWARE
@@ -21,6 +23,9 @@ const PORT = process.env.PORT || 5000;
 
 // Allows Express to understand JSON data sent in requests
 app.use(express.json());
+
+// Authentication routes
+app.use("/api/auth", authRoutes);
 
 
 // --------------------------------------------------
