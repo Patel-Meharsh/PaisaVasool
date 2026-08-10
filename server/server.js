@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 5000;
 // Import authentication routes
 const authRoutes = require("./src/routes/authRoutes");
 
+//Import profile routes
+const profileRoutes = require("./src/routes/profileRoutes");
+
 // --------------------------------------------------
 // MIDDLEWARE
 // --------------------------------------------------
@@ -26,6 +29,9 @@ app.use(express.json());
 
 // Authentication routes
 app.use("/api/auth", authRoutes);
+
+//Profile routes
+app.use("/api", profileRoutes);
 
 
 // --------------------------------------------------

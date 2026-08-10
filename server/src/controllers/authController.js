@@ -15,10 +15,16 @@ const {
 } = require("../utils/generateOTP");
 
 // Import email utility
-// Used to send the OTP to the user's email
+// Used to send OTP emails
 const {
     sendOTPEmail
 } = require("../utils/sendEmail");
+
+// Import JWT utility
+// Used to generate a JWT after successful login
+const {
+    generateToken
+} = require("../utils/jwt");
 
 
 // ============================================================
@@ -29,7 +35,7 @@ const {
 const registerUser = async (req, res) => {
     try {
 
-        // Get the registration data sent by the user
+        // Get registration data from request body
         const { name, email, password } = req.body;
 
 
@@ -61,15 +67,14 @@ const registerUser = async (req, res) => {
         // 3. Create the user
         // ----------------------------------------------------
 
-        // The password will be hashed automatically
+        // Password hashing is handled automatically
         // by the User model's pre-save middleware.
         const user = await User.create({
             name,
             email,
             password,
 
-            // User must verify their email before
-            // being considered fully verified.
+            // User must verify their email.
             isEmailVerified: false
         });
 
@@ -85,8 +90,7 @@ const registerUser = async (req, res) => {
         // 5. Hash the OTP
         // ----------------------------------------------------
 
-        // We don't store the actual OTP in the database.
-        // We store its hash for better security.
+        // We store the hash instead of the actual OTP.
         const otpHash = hashOTP(otp);
 
 
@@ -106,15 +110,8 @@ const registerUser = async (req, res) => {
 
         await Otp.create({
             userId: user._id,
-
-            // This tells us why this OTP was generated.
             purpose: "email_verification",
-
-            // Store the hashed OTP instead of the
-            // actual OTP.
             otpHash,
-
-            // Store the expiration time.
             expiresAt
         });
 
@@ -123,28 +120,23 @@ const registerUser = async (req, res) => {
         // 8. Send OTP to user's email
         // ----------------------------------------------------
 
-        // The actual OTP is sent to the user's email.
-        // We don't store the actual OTP in MongoDB.
         await sendOTPEmail(user.email, otp);
 
 
         // ----------------------------------------------------
-        // 9. Send successful response
+        // 9. Send registration response
         // ----------------------------------------------------
 
         res.status(201).json({
             message:
                 "Registration successful. Please verify your email using the OTP sent to your email.",
 
-            // Send the user ID because we'll need it
-            // during email verification.
+            // We need this ID for email verification.
             userId: user._id
         });
 
     } catch (error) {
 
-        // Print the actual error in the terminal
-        // so we can debug backend problems.
         console.error(
             "Registration error:",
             error.message
@@ -161,11 +153,11 @@ const registerUser = async (req, res) => {
 // VERIFY EMAIL
 // ============================================================
 
-// Verify user's email using the OTP received by email
+// Verify user's email using the OTP
 const verifyEmail = async (req, res) => {
     try {
 
-        // Get userId and OTP from the request body
+        // Get user ID and OTP from request body
         const { userId, otp } = req.body;
 
 
@@ -216,8 +208,7 @@ const verifyEmail = async (req, res) => {
         });
 
 
-        // If no OTP exists, it may have expired
-        // or may not have been generated.
+        // OTP doesn't exist
         if (!otpRecord) {
             return res.status(400).json({
                 message: "OTP not found or expired"
@@ -226,7 +217,7 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 5. Check whether OTP has expired
+        // 5. Check OTP expiration
         // ----------------------------------------------------
 
         if (otpRecord.expiresAt < new Date()) {
@@ -243,16 +234,14 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 6. Compare entered OTP with stored hash
+        // 6. Compare entered OTP
         // ----------------------------------------------------
 
-        // The entered OTP is hashed in exactly the same
-        // way as the OTP that was stored during registration.
         const isOtpCorrect =
             hashOTP(otp) === otpRecord.otpHash;
 
 
-        // If OTP doesn't match
+        // Incorrect OTP
         if (!isOtpCorrect) {
             return res.status(400).json({
                 message: "Invalid OTP"
@@ -261,7 +250,7 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 7. Mark the user's email as verified
+        // 7. Mark email as verified
         // ----------------------------------------------------
 
         user.isEmailVerified = true;
@@ -270,11 +259,9 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 8. Delete the OTP
+        // 8. Delete OTP after successful verification
         // ----------------------------------------------------
 
-        // OTP has already been successfully used,
-        // so we don't need it anymore.
         await Otp.deleteOne({
             _id: otpRecord._id
         });
@@ -290,7 +277,6 @@ const verifyEmail = async (req, res) => {
 
     } catch (error) {
 
-        // Print error in terminal for debugging
         console.error(
             "Email verification error:",
             error.message
@@ -333,7 +319,7 @@ const loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
 
-        // If user doesn't exist
+        // User doesn't exist
         if (!user) {
             return res.status(401).json({
                 message: "Invalid email or password"
@@ -342,14 +328,14 @@ const loginUser = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 3. Compare entered password with hashed password
+        // 3. Compare password
         // ----------------------------------------------------
 
         const isPasswordCorrect =
             await user.comparePassword(password);
 
 
-        // If password is incorrect
+        // Incorrect password
         if (!isPasswordCorrect) {
             return res.status(401).json({
                 message: "Invalid email or password"
@@ -358,11 +344,41 @@ const loginUser = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 4. Login successful
+        // 4. Check email verification
+        // ----------------------------------------------------
+
+        // A user must verify their email before logging in.
+        if (!user.isEmailVerified) {
+            return res.status(403).json({
+                message:
+                    "Please verify your email before logging in"
+            });
+        }
+
+
+        // ----------------------------------------------------
+        // 5. Generate JWT
+        // ----------------------------------------------------
+
+        // At this point:
+        // - User exists
+        // - Password is correct
+        // - Email is verified
+        //
+        // So we can generate the authentication token.
+        const token = generateToken(user);
+
+
+        // ----------------------------------------------------
+        // 6. Send successful login response
         // ----------------------------------------------------
 
         res.status(200).json({
             message: "Login successful",
+
+            // JWT token will be used for future
+            // authenticated requests.
+            token,
 
             user: {
                 id: user._id,
@@ -374,10 +390,9 @@ const loginUser = async (req, res) => {
 
     } catch (error) {
 
-        // Print error in terminal
         console.error(
             "Login error:",
-            error
+            error.message
         );
 
         res.status(500).json({
@@ -391,8 +406,6 @@ const loginUser = async (req, res) => {
 // EXPORT CONTROLLERS
 // ============================================================
 
-// Export all controller functions so that
-// the route files can use them.
 module.exports = {
     registerUser,
     verifyEmail,
