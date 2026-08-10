@@ -261,6 +261,7 @@ const getOrderById = async (req, res) => {
 
 // ============================================================
 // CANCEL ORDER
+// Restore product stock
 // ============================================================
 
 const cancelOrder = async (req, res) => {
@@ -268,6 +269,10 @@ const cancelOrder = async (req, res) => {
 
         const { id } = req.params;
 
+
+        // ----------------------------------------------------
+        // Find user's order
+        // ----------------------------------------------------
 
         const order = await Order.findOne({
             _id: id,
@@ -282,7 +287,10 @@ const cancelOrder = async (req, res) => {
         }
 
 
+        // ----------------------------------------------------
         // Only pending or confirmed orders can be cancelled
+        // ----------------------------------------------------
+
         if (
             order.status !== "pending" &&
             order.status !== "confirmed"
@@ -294,13 +302,49 @@ const cancelOrder = async (req, res) => {
         }
 
 
+        // ----------------------------------------------------
+        // Restore product stock
+        // ----------------------------------------------------
+
+        for (const item of order.items) {
+
+            await Product.findByIdAndUpdate(
+                item.product,
+                {
+                    $inc: {
+                        stock: item.quantity
+                    }
+                }
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // Update order status
+        // ----------------------------------------------------
+
         order.status = "cancelled";
+
+
+        // If payment was already completed,
+        // mark it for refund processing.
+        if (order.paymentStatus === "paid") {
+
+            order.paymentStatus = "refunded";
+        }
+
 
         await order.save();
 
 
+        // ----------------------------------------------------
+        // Response
+        // ----------------------------------------------------
+
         res.status(200).json({
-            message: "Order cancelled successfully",
+            message:
+                "Order cancelled successfully and stock restored",
+
             order
         });
 

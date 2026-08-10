@@ -95,40 +95,222 @@ const createProduct = async (req, res) => {
     }
 };
 
-
 // ============================================================
 // GET ALL PRODUCTS
+// Search + Filter + Sort + Pagination
 // ============================================================
 
 const getProducts = async (req, res) => {
     try {
 
-        const products = await Product.find(
-            { isActive: true },
+        // ----------------------------------------------------
+        // Read query parameters
+        // ----------------------------------------------------
 
-            // Only return fields required by the frontend
-            {
-                name: 1,
-                description: 1,
-                price: 1,
-                stock: 1,
-                images: 1,
-                brand: 1,
-                category: 1
-            }
-        )
-            .populate(
-                "category",
-                "name"
+        const {
+            search,
+            category,
+            minPrice,
+            maxPrice,
+            sort,
+            page = 1,
+            limit = 10
+        } = req.query;
+
+
+        // ----------------------------------------------------
+        // Build MongoDB filter
+        // ----------------------------------------------------
+
+        const filter = {
+            isActive: true
+        };
+
+
+        // ----------------------------------------------------
+        // Search by product name or description
+        // ----------------------------------------------------
+
+        if (search) {
+
+            filter.$or = [
+                {
+                    name: {
+                        $regex: search,
+                        $options: "i"
+                    }
+                },
+                {
+                    description: {
+                        $regex: search,
+                        $options: "i"
+                    }
+                },
+                {
+                    brand: {
+                        $regex: search,
+                        $options: "i"
+                    }
+                }
+            ];
+        }
+
+
+        // ----------------------------------------------------
+        // Filter by category
+        // ----------------------------------------------------
+
+        if (category) {
+            filter.category = category;
+        }
+
+
+        // ----------------------------------------------------
+        // Filter by minimum price
+        // ----------------------------------------------------
+
+        if (minPrice !== undefined) {
+
+            filter.price = {
+                ...filter.price,
+                $gte: Number(minPrice)
+            };
+        }
+
+
+        // ----------------------------------------------------
+        // Filter by maximum price
+        // ----------------------------------------------------
+
+        if (maxPrice !== undefined) {
+
+            filter.price = {
+                ...filter.price,
+                $lte: Number(maxPrice)
+            };
+        }
+
+
+        // ----------------------------------------------------
+        // Pagination
+        // ----------------------------------------------------
+
+        const pageNumber = Math.max(
+            Number(page),
+            1
+        );
+
+        const limitNumber = Math.min(
+            Math.max(Number(limit), 1),
+            50
+        );
+
+        const skip =
+            (pageNumber - 1) * limitNumber;
+
+
+        // ----------------------------------------------------
+        // Sorting
+        // ----------------------------------------------------
+
+        let sortOption = {
+            createdAt: -1
+        };
+
+
+        if (sort === "price_asc") {
+
+            sortOption = {
+                price: 1
+            };
+
+        } else if (sort === "price_desc") {
+
+            sortOption = {
+                price: -1
+            };
+
+        } else if (sort === "name_asc") {
+
+            sortOption = {
+                name: 1
+            };
+
+        } else if (sort === "name_desc") {
+
+            sortOption = {
+                name: -1
+            };
+        }
+
+
+        // ----------------------------------------------------
+        // Get total number of matching products
+        // ----------------------------------------------------
+
+        const totalProducts =
+            await Product.countDocuments(filter);
+
+
+        // ----------------------------------------------------
+        // Fetch products
+        // ----------------------------------------------------
+
+        const products =
+            await Product.find(
+                filter,
+                {
+                    name: 1,
+                    description: 1,
+                    price: 1,
+                    stock: 1,
+                    images: 1,
+                    brand: 1,
+                    category: 1
+                }
             )
-            .sort({
-                createdAt: -1
-            });
+                .populate(
+                    "category",
+                    "name"
+                )
+                .sort(sortOption)
+                .skip(skip)
+                .limit(limitNumber);
 
+
+        // ----------------------------------------------------
+        // Calculate pagination information
+        // ----------------------------------------------------
+
+        const totalPages =
+            Math.ceil(
+                totalProducts / limitNumber
+            );
+
+
+        // ----------------------------------------------------
+        // Send response
+        // ----------------------------------------------------
 
         res.status(200).json({
-            message: "Products fetched successfully",
-            products
+
+            message:
+                "Products fetched successfully",
+
+            products,
+
+            pagination: {
+                currentPage: pageNumber,
+                totalPages,
+                totalProducts,
+                limit: limitNumber,
+
+                hasNextPage:
+                    pageNumber < totalPages,
+
+                hasPreviousPage:
+                    pageNumber > 1
+            }
         });
 
     } catch (error) {

@@ -1,7 +1,6 @@
 // Import mongoose
 const mongoose = require("mongoose");
 
-
 // ============================================================
 // ORDER ITEM SCHEMA
 // ============================================================
@@ -77,6 +76,7 @@ const orderSchema = new mongoose.Schema(
         // ----------------------------------------------------
 
         shippingAddress: {
+
             fullName: {
                 type: String,
                 required: true
@@ -171,6 +171,110 @@ const orderSchema = new mongoose.Schema(
             ],
 
             default: "cod"
+        },
+
+
+        // ====================================================
+        // RAZORPAY PAYMENT INFORMATION
+        // ====================================================
+
+        // Razorpay order ID
+        // Created when we create a Razorpay payment order.
+        razorpayOrderId: {
+            type: String,
+            default: null
+        },
+
+
+        // Razorpay payment ID
+        // Received after the customer completes payment.
+        razorpayPaymentId: {
+            type: String,
+            default: null
+        },
+
+
+        // Razorpay payment signature
+        // Used by the backend to verify the payment.
+        razorpaySignature: {
+            type: String,
+            default: null
+        },
+
+
+        // Razorpay refund ID
+        // Stored when a refund is created.
+        razorpayRefundId: {
+            type: String,
+            default: null
+        },
+
+
+        // ----------------------------------------------------
+        // Refund status
+        // ----------------------------------------------------
+
+        refundStatus: {
+            type: String,
+
+            enum: [
+                "none",
+                "pending",
+                "initiated",
+                "processed",
+                "failed"
+            ],
+
+            default: "none"
+        },
+
+
+        // ====================================================
+        // RETURN INFORMATION
+        // ====================================================
+
+        // Current return status of the order.
+        //
+        // none      → No return requested
+        // requested → User requested a return
+        // approved  → Admin approved the return
+        // rejected  → Admin rejected the return
+        // received  → Product was received back
+        returnStatus: {
+            type: String,
+
+            enum: [
+                "none",
+                "requested",
+                "approved",
+                "rejected",
+                "received"
+            ],
+
+            default: "none"
+        },
+
+
+        // Reason provided by the customer
+        // when requesting a return.
+        returnReason: {
+            type: String,
+            default: null
+        },
+
+
+        // Date/time when the user requested the return.
+        returnRequestedAt: {
+            type: Date,
+            default: null
+        },
+
+
+        // Date/time when the return was processed
+        // by the admin.
+        returnProcessedAt: {
+            type: Date,
+            default: null
         }
 
     },
@@ -191,5 +295,8 @@ const Order = mongoose.model(
 );
 
 
-// Export model
+// ============================================================
+// EXPORT MODEL
+// ============================================================
+
 module.exports = Order;

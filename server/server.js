@@ -35,6 +35,15 @@ const cartRoutes = require("./src/routes/cartRoutes");
 //Import order routes
 const orderRoutes = require("./src/routes/orderRoutes");
 
+//Import payment routes
+const paymentRoutes = require("./src/routes/paymentRoutes");
+
+//Import return routes
+const returnRoutes = require("./src/routes/returnRoutes");
+
+//Import adminreturn routes
+const adminReturnRoutes = require("./src/routes/adminReturnRoutes");
+
 // --------------------------------------------------
 // MIDDLEWARE
 // --------------------------------------------------
@@ -62,6 +71,15 @@ app.use("/api/cart", cartRoutes);
 
 //Order routes
 app.use("/api/orders", orderRoutes);
+
+//Payment routes
+app.use("/api/payments", paymentRoutes);
+
+//Return routes
+app.use("/api/orders", returnRoutes);
+
+//AdminReturn routes
+app.use("/api/admin/returns", adminReturnRoutes);
 
 
 // --------------------------------------------------
