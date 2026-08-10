@@ -5,12 +5,15 @@ const express = require("express");
 const router = express.Router();
 
 // Import the register controller
-const { registerUser, loginUser } = require("../controllers/authController");
+const { registerUser, verifyEmail, loginUser } = require("../controllers/authController");
 
 
 // Register a new user
 // POST /api/auth/register
 router.post("/register", registerUser);
+
+// Verify user's email using OTP
+router.post("/verify-email", verifyEmail);
 
 // Login a user
 // POST /api/auth/login
