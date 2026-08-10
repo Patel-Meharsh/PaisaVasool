@@ -23,6 +23,18 @@ const profileRoutes = require("./src/routes/profileRoutes");
 //Import admin routes
 const adminRoutes = require("./src/routes/adminRoutes");
 
+//Import category routes
+const categoryRoutes = require("./src/routes/categoryRoutes");
+
+//Import product routes
+const productRoutes = require("./src/routes/productRoutes");
+
+//Import cart routes
+const cartRoutes = require("./src/routes/cartRoutes");
+
+//Import order routes
+const orderRoutes = require("./src/routes/orderRoutes");
+
 // --------------------------------------------------
 // MIDDLEWARE
 // --------------------------------------------------
@@ -38,6 +50,18 @@ app.use("/api", profileRoutes);
 
 //Admin routes
 app.use("/api/admin", adminRoutes);
+
+//Category routes
+app.use("/api/categories", categoryRoutes);
+
+//Product routes
+app.use("/api/products", productRoutes);
+
+//Cart routes
+app.use("/api/cart", cartRoutes);
+
+//Order routes
+app.use("/api/orders", orderRoutes);
 
 
 // --------------------------------------------------
