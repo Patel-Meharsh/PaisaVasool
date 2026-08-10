@@ -20,6 +20,9 @@ const authRoutes = require("./src/routes/authRoutes");
 //Import profile routes
 const profileRoutes = require("./src/routes/profileRoutes");
 
+//Import admin routes
+const adminRoutes = require("./src/routes/adminRoutes");
+
 // --------------------------------------------------
 // MIDDLEWARE
 // --------------------------------------------------
@@ -32,6 +35,9 @@ app.use("/api/auth", authRoutes);
 
 //Profile routes
 app.use("/api", profileRoutes);
+
+//Admin routes
+app.use("/api/admin", adminRoutes);
 
 
 // --------------------------------------------------
