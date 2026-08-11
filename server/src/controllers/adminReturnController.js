@@ -8,6 +8,10 @@ const Order = require("../models/Order");
 // Import Razorpay instance
 const razorpay = require("../utils/razorpay");
 
+const {
+    sendReturnApprovedEmail,
+    sendReturnRejectedEmail
+} = require("../utils/sendEmail");
 
 // ============================================================
 // ADMIN - GET RETURN REQUESTS
@@ -97,7 +101,11 @@ const approveReturn = async (req, res) => {
         // Find order
         // ----------------------------------------------------
 
-        const order = await Order.findById(id);
+        const order = await Order.findById(id)
+        .populate(
+            "user",
+            "name email"
+        );
 
 
         if (!order) {
@@ -129,6 +137,20 @@ const approveReturn = async (req, res) => {
 
 
         await order.save();
+
+
+        try {
+            await sendReturnApprovedEmail(
+                order.user.email,
+                order.user.name,
+                order
+            );
+        } catch (emailError) {
+            console.error(
+                "Return approval email error:",
+                emailError.message
+            );
+        }
 
 
         // ----------------------------------------------------
@@ -191,7 +213,11 @@ const rejectReturn = async (req, res) => {
         // Find order
         // ----------------------------------------------------
 
-        const order = await Order.findById(id);
+        const order = await Order.findById(id)
+        .populate(
+            "user",
+            "name email"
+        );
 
 
         if (!order) {
@@ -223,6 +249,19 @@ const rejectReturn = async (req, res) => {
 
 
         await order.save();
+
+        try {
+            await sendReturnRejectedEmail(
+                order.user.email,
+                order.user.name,
+                order
+            );
+        } catch (emailError) {
+            console.error(
+                "Return rejection email error:",
+                emailError.message
+            );
+        }
 
 
         // ----------------------------------------------------

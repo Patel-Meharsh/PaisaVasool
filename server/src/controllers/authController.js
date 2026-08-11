@@ -15,9 +15,11 @@ const {
 } = require("../utils/generateOTP");
 
 // Import email utility
-// Used to send OTP emails
+// Used to send OTP emails and Welcome Email
 const {
-    sendOTPEmail
+    sendOTPEmail,
+    sendWelcomeEmail,
+    sendLoginSuccessEmail
 } = require("../utils/sendEmail");
 
 // Import JWT utility
@@ -259,7 +261,17 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 8. Delete OTP after successful verification
+        // 8. Send welcome email after successful verification
+        // ----------------------------------------------------
+
+        await sendWelcomeEmail(
+            user.email,
+            user.name
+        );
+
+
+        // ----------------------------------------------------
+        // 9. Delete OTP after successful verification
         // ----------------------------------------------------
 
         await Otp.deleteOne({
@@ -268,7 +280,7 @@ const verifyEmail = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 9. Send successful response
+        // 10. Send successful response
         // ----------------------------------------------------
 
         res.status(200).json({
@@ -367,6 +379,27 @@ const loginUser = async (req, res) => {
         //
         // So we can generate the authentication token.
         const token = generateToken(user);
+
+
+        // ----------------------------------------------------
+        // Send successful login email
+        // ----------------------------------------------------
+
+        try {
+
+            await sendLoginSuccessEmail(
+                user.email,
+                user.name
+            );
+
+        } catch (emailError) {
+
+            console.error(
+                "Login email error:",
+                emailError.message
+            );
+
+        }
 
 
         // ----------------------------------------------------

@@ -13,6 +13,10 @@ const protect = require("../middleware/authMiddleware");
 // Authorization
 const authorize = require("../middleware/roleMiddleware");
 
+const validate = require("../validators/validationMiddleware");
+
+const {createProductSchema, updateProductSchema} = require("../validators/productValidator");
+
 
 // ============================================================
 // IMPORT CONTROLLERS
@@ -47,21 +51,23 @@ router.get("/:id", getProductById);
 // Only admins can create products.
 
 // POST /api/products
+// Only admins can create products.
 router.post(
     "/",
     protect,
     authorize("admin"),
+    validate(createProductSchema),
     createProduct
 );
 
 
-// Only admins can update products.
-
 // PUT /api/products/:id
+// Only admins can update products.
 router.put(
     "/:id",
     protect,
     authorize("admin"),
+    validate(updateProductSchema),
     updateProduct
 );
 

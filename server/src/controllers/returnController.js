@@ -2,8 +2,22 @@
 // RETURN CONTROLLER
 // ============================================================
 
-// Import Order model
+// ============================================================
+// IMPORT MODELS
+// ============================================================
+
 const Order = require("../models/Order");
+
+const User = require("../models/User");
+
+
+// ============================================================
+// IMPORT EMAIL FUNCTIONS
+// ============================================================
+
+const {
+    sendReturnRequestedEmail
+} = require("../utils/sendEmail");
 
 
 // ============================================================
@@ -111,6 +125,35 @@ const requestReturn = async (req, res) => {
         // ----------------------------------------------------
 
         await order.save();
+
+        // ----------------------------------------------------
+        // Send return request email
+        // ----------------------------------------------------
+
+        try {
+
+            const user = await User.findById(
+                req.user._id
+            );
+
+            if (user) {
+
+                await sendReturnRequestedEmail(
+                    user.email,
+                    user.name,
+                    order
+                );
+
+            }
+
+        } catch (emailError) {
+
+            console.error(
+                "Return email error:",
+                emailError.message
+            );
+
+        }
 
 
         // ----------------------------------------------------

@@ -8,13 +8,11 @@ const protect = require("../middleware/authMiddleware");
 
 
 // Cart controllers
-const {
-    getCart,
-    addToCart,
-    updateCartItem,
-    removeFromCart,
-    clearCart
-} = require("../controllers/cartController");
+const {getCart, addToCart, updateCartItem, removeFromCart, clearCart} = require("../controllers/cartController");
+
+const validate = require("../validators/validationMiddleware");
+
+const {cartSchema} = require("../validators/cartValidator");
 
 
 // ============================================================
@@ -33,7 +31,8 @@ router.get(
 router.post(
     "/add",
     protect,
-    addToCart
+    addToCart,
+    validate(cartSchema)
 );
 
 

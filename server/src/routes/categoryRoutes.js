@@ -18,13 +18,11 @@ const authorize = require("../middleware/roleMiddleware");
 // IMPORT CONTROLLERS
 // ============================================================
 
-const {
-    createCategory,
-    getCategories,
-    getCategoryById,
-    updateCategory,
-    deleteCategory
-} = require("../controllers/categoryController");
+const {createCategory,getCategories, getCategoryById, updateCategory, deleteCategory} = require("../controllers/categoryController");
+
+const validate = require("../validators/validationMiddleware");
+
+const {categorySchema} = require("../validators/categoryValidator");
 
 
 // ============================================================
@@ -51,7 +49,8 @@ router.post(
     "/",
     protect,
     authorize("admin"),
-    createCategory
+    createCategory,
+    validate(categorySchema)
 );
 
 
@@ -62,7 +61,8 @@ router.put(
     "/:id",
     protect,
     authorize("admin"),
-    updateCategory
+    updateCategory,
+    validate(categorySchema)
 );
 
 
