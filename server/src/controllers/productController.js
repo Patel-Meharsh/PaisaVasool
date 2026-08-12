@@ -2,8 +2,15 @@
 const Product = require("../models/Product");
 
 // Import Category model
-// Used to make sure the selected category actually exists.
 const Category = require("../models/Category");
+
+// Import PriceAlert model
+const PriceAlert = require("../models/PriceAlert");
+
+// Import price drop email function
+const {
+    sendPriceDropAlertEmail
+} = require("../utils/sendEmail");
 
 
 // ============================================================
@@ -11,6 +18,7 @@ const Category = require("../models/Category");
 // ============================================================
 
 const createProduct = async (req, res) => {
+
     try {
 
         const {
@@ -35,10 +43,12 @@ const createProduct = async (req, res) => {
             stock === undefined ||
             !category
         ) {
+
             return res.status(400).json({
                 message:
                     "Name, description, price, stock and category are required"
             });
+
         }
 
 
@@ -47,14 +57,20 @@ const createProduct = async (req, res) => {
         // ----------------------------------------------------
 
         const existingCategory = await Category.findOne({
+
             _id: category,
             isActive: true
+
         });
 
+
         if (!existingCategory) {
+
             return res.status(400).json({
-                message: "Invalid or inactive category"
+                message:
+                    "Invalid or inactive category"
             });
+
         }
 
 
@@ -63,6 +79,7 @@ const createProduct = async (req, res) => {
         // ----------------------------------------------------
 
         const product = await Product.create({
+
             name,
             description,
             price,
@@ -70,6 +87,7 @@ const createProduct = async (req, res) => {
             images,
             brand,
             category
+
         });
 
 
@@ -78,8 +96,12 @@ const createProduct = async (req, res) => {
         // ----------------------------------------------------
 
         res.status(201).json({
-            message: "Product created successfully",
+
+            message:
+                "Product created successfully",
+
             product
+
         });
 
     } catch (error) {
@@ -92,8 +114,11 @@ const createProduct = async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+
     }
+
 };
+
 
 // ============================================================
 // GET ALL PRODUCTS
@@ -101,11 +126,8 @@ const createProduct = async (req, res) => {
 // ============================================================
 
 const getProducts = async (req, res) => {
-    try {
 
-        // ----------------------------------------------------
-        // Read query parameters
-        // ----------------------------------------------------
+    try {
 
         const {
             search,
@@ -128,66 +150,81 @@ const getProducts = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Search by product name or description
+        // Search
         // ----------------------------------------------------
 
         if (search) {
 
             filter.$or = [
+
                 {
                     name: {
                         $regex: search,
                         $options: "i"
                     }
                 },
+
                 {
                     description: {
                         $regex: search,
                         $options: "i"
                     }
                 },
+
                 {
                     brand: {
                         $regex: search,
                         $options: "i"
                     }
                 }
+
             ];
+
         }
 
 
         // ----------------------------------------------------
-        // Filter by category
+        // Category filter
         // ----------------------------------------------------
 
         if (category) {
+
             filter.category = category;
+
         }
 
 
         // ----------------------------------------------------
-        // Filter by minimum price
+        // Minimum price
         // ----------------------------------------------------
 
         if (minPrice !== undefined) {
 
             filter.price = {
+
                 ...filter.price,
+
                 $gte: Number(minPrice)
+
             };
+
         }
 
 
         // ----------------------------------------------------
-        // Filter by maximum price
+        // Maximum price
         // ----------------------------------------------------
 
         if (maxPrice !== undefined) {
 
             filter.price = {
+
                 ...filter.price,
+
                 $lte: Number(maxPrice)
+
             };
+
         }
 
 
@@ -241,11 +278,12 @@ const getProducts = async (req, res) => {
             sortOption = {
                 name: -1
             };
+
         }
 
 
         // ----------------------------------------------------
-        // Get total number of matching products
+        // Count products
         // ----------------------------------------------------
 
         const totalProducts =
@@ -258,7 +296,9 @@ const getProducts = async (req, res) => {
 
         const products =
             await Product.find(
+
                 filter,
+
                 {
                     name: 1,
                     description: 1,
@@ -268,6 +308,7 @@ const getProducts = async (req, res) => {
                     brand: 1,
                     category: 1
                 }
+
             )
                 .populate(
                     "category",
@@ -279,7 +320,7 @@ const getProducts = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Calculate pagination information
+        // Pagination information
         // ----------------------------------------------------
 
         const totalPages =
@@ -289,7 +330,7 @@ const getProducts = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Send response
+        // Response
         // ----------------------------------------------------
 
         res.status(200).json({
@@ -300,9 +341,13 @@ const getProducts = async (req, res) => {
             products,
 
             pagination: {
+
                 currentPage: pageNumber,
+
                 totalPages,
+
                 totalProducts,
+
                 limit: limitNumber,
 
                 hasNextPage:
@@ -310,7 +355,9 @@ const getProducts = async (req, res) => {
 
                 hasPreviousPage:
                     pageNumber > 1
+
             }
+
         });
 
     } catch (error) {
@@ -323,7 +370,9 @@ const getProducts = async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+
     }
+
 };
 
 
@@ -332,32 +381,42 @@ const getProducts = async (req, res) => {
 // ============================================================
 
 const getProductById = async (req, res) => {
+
     try {
 
         const { id } = req.params;
 
 
-        // Find active product and populate category.
-
         const product = await Product.findOne({
+
             _id: id,
             isActive: true
+
         }).populate(
+
             "category",
             "name description"
+
         );
 
 
         if (!product) {
+
             return res.status(404).json({
-                message: "Product not found"
+                message:
+                    "Product not found"
             });
+
         }
 
 
         res.status(200).json({
-            message: "Product fetched successfully",
+
+            message:
+                "Product fetched successfully",
+
             product
+
         });
 
     } catch (error) {
@@ -370,7 +429,9 @@ const getProductById = async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+
     }
+
 };
 
 
@@ -379,9 +440,11 @@ const getProductById = async (req, res) => {
 // ============================================================
 
 const updateProduct = async (req, res) => {
+
     try {
 
         const { id } = req.params;
+
 
         const {
             name,
@@ -396,73 +459,250 @@ const updateProduct = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // If category is being changed, verify it.
+        // Find existing product first
+        // ----------------------------------------------------
+
+        const existingProduct =
+            await Product.findById(id);
+
+
+        if (!existingProduct) {
+
+            return res.status(404).json({
+
+                message:
+                    "Product not found"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // Check category if changed
         // ----------------------------------------------------
 
         if (category) {
 
-            const existingCategory = await Category.findOne({
-                _id: category,
-                isActive: true
-            });
+            const existingCategory =
+                await Category.findOne({
+
+                    _id: category,
+                    isActive: true
+
+                });
+
 
             if (!existingCategory) {
+
                 return res.status(400).json({
-                    message: "Invalid or inactive category"
+
+                    message:
+                        "Invalid or inactive category"
+
                 });
+
             }
+
         }
+
+
+        // ----------------------------------------------------
+        // Store old price
+        // ----------------------------------------------------
+
+        const oldPrice =
+            existingProduct.price;
 
 
         // ----------------------------------------------------
         // Update product
         // ----------------------------------------------------
 
-        const product = await Product.findByIdAndUpdate(
-            id,
-            {
-                name,
-                description,
-                price,
-                stock,
-                images,
-                brand,
-                category,
-                isActive
-            },
-            {
-                new: true,
-                runValidators: true
+        const product =
+            await Product.findByIdAndUpdate(
+
+                id,
+
+                {
+                    name,
+                    description,
+                    price,
+                    stock,
+                    images,
+                    brand,
+                    category,
+                    isActive
+                },
+
+                {
+                    new: true,
+                    runValidators: true
+                }
+
+            ).populate(
+
+                "category",
+                "name description"
+
+            );
+
+
+        // ====================================================
+        // PRICE DROP ALERT LOGIC
+        // ====================================================
+
+        // Only run this logic when:
+        //
+        // 1. A new price was provided
+        // 2. The new price is lower than the old price
+        //
+        // Example:
+        //
+        // Old price = ₹5000
+        // New price = ₹4000
+        //
+        // This is a price drop.
+
+        if (
+            price !== undefined &&
+            Number(price) < Number(oldPrice)
+        ) {
+
+            const newPrice =
+                Number(price);
+
+
+            console.log(
+                `Price dropped for product ${product._id}: ₹${oldPrice} → ₹${newPrice}`
+            );
+
+
+            // ------------------------------------------------
+            // Find active price alerts
+            // ------------------------------------------------
+
+            const alerts =
+                await PriceAlert.find({
+
+                    product: product._id,
+
+                    isNotified: false
+
+                }).populate(
+
+                    "user",
+                    "name email"
+
+                );
+
+
+            // ------------------------------------------------
+            // Check each alert
+            // ------------------------------------------------
+
+            for (const alert of alerts) {
+
+                // Update current product price
+                alert.currentPrice =
+                    newPrice;
+
+
+                // ------------------------------------------------
+                // Check whether target price is reached
+                // ------------------------------------------------
+
+                if (
+                    newPrice <=
+                    alert.targetPrice
+                ) {
+
+                    // ----------------------------------------
+                    // Send price-drop email
+                    // ----------------------------------------
+
+                    try {
+
+                        await sendPriceDropAlertEmail(
+
+                            alert.user.email,
+
+                            alert.user.name,
+
+                            product,
+
+                            alert.targetPrice
+
+                        );
+
+
+                        // ------------------------------------
+                        // Mark alert as notified
+                        // ------------------------------------
+
+                        alert.isNotified = true;
+
+
+                        console.log(
+
+                            `Price alert email sent to ${alert.user.email}`
+
+                        );
+
+                    } catch (emailError) {
+
+                        console.error(
+
+                            "Price alert email error:",
+
+                            emailError.message
+
+                        );
+
+                    }
+
+                }
+
+
+                await alert.save();
+
             }
-        ).populate(
-            "category",
-            "name description"
-        );
 
-
-        if (!product) {
-            return res.status(404).json({
-                message: "Product not found"
-            });
         }
 
 
+        // ----------------------------------------------------
+        // Response
+        // ----------------------------------------------------
+
         res.status(200).json({
-            message: "Product updated successfully",
+
+            message:
+                "Product updated successfully",
+
             product
+
         });
 
     } catch (error) {
 
         console.error(
+
             "Update product error:",
+
             error.message
+
         );
 
         res.status(500).json({
-            message: "Server error"
+
+            message:
+                "Server error"
+
         });
+
     }
+
 };
 
 
@@ -471,6 +711,7 @@ const updateProduct = async (req, res) => {
 // ============================================================
 
 const deleteProduct = async (req, res) => {
+
     try {
 
         const { id } = req.params;
@@ -480,39 +721,60 @@ const deleteProduct = async (req, res) => {
         // Soft delete
         // ----------------------------------------------------
 
-        const product = await Product.findByIdAndUpdate(
-            id,
-            {
-                isActive: false
-            },
-            {
-                new: true
-            }
-        );
+        const product =
+            await Product.findByIdAndUpdate(
+
+                id,
+
+                {
+                    isActive: false
+                },
+
+                {
+                    new: true
+                }
+
+            );
 
 
         if (!product) {
+
             return res.status(404).json({
-                message: "Product not found"
+
+                message:
+                    "Product not found"
+
             });
+
         }
 
 
         res.status(200).json({
-            message: "Product deleted successfully"
+
+            message:
+                "Product deleted successfully"
+
         });
 
     } catch (error) {
 
         console.error(
+
             "Delete product error:",
+
             error.message
+
         );
 
         res.status(500).json({
-            message: "Server error"
+
+            message:
+                "Server error"
+
         });
+
     }
+
 };
 
 
@@ -521,9 +783,15 @@ const deleteProduct = async (req, res) => {
 // ============================================================
 
 module.exports = {
+
     createProduct,
+
     getProducts,
+
     getProductById,
+
     updateProduct,
+
     deleteProduct
+
 };

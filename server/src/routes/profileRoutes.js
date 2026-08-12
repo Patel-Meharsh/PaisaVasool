@@ -3,21 +3,32 @@ const express = require("express");
 const router = express.Router();
 
 
-// Import JWT authentication middleware
-const protect = require("../middleware/authMiddleware");
+// ============================================================
+// AUTHENTICATION MIDDLEWARE
+// ============================================================
+
+const protect =
+    require("../middleware/authMiddleware");
 
 
-// Import profile controller
+// ============================================================
+// PROFILE CONTROLLERS
+// ============================================================
+
 const {
-    getProfile
+
+    getProfile,
+
+    updateProfile
+
 } = require("../controllers/profileController");
 
 
 // ============================================================
-// PROTECTED PROFILE ROUTE
+// GET PROFILE
 // ============================================================
 
-// The protect middleware runs BEFORE getProfile.
+// GET /api/profile
 //
 // Request flow:
 //
@@ -28,9 +39,39 @@ const {
 // JWT valid?
 //        ↓
 // getProfile
+
+router.get(
+    "/profile",
+    protect,
+    getProfile
+);
+
+
+// ============================================================
+// UPDATE PROFILE
+// ============================================================
+
+// PUT /api/profile
 //
-router.get("/profile", protect, getProfile);
+// Request flow:
+//
+// PUT /api/profile
+//        ↓
+// protect
+//        ↓
+// JWT valid?
+//        ↓
+// updateProfile
+
+router.put(
+    "/profile",
+    protect,
+    updateProfile
+);
 
 
-// Export router
+// ============================================================
+// EXPORT ROUTER
+// ============================================================
+
 module.exports = router;

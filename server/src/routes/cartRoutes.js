@@ -31,8 +31,8 @@ router.get(
 router.post(
     "/add",
     protect,
-    addToCart,
-    validate(cartSchema)
+    validate(cartSchema),
+    addToCart
 );
 
 

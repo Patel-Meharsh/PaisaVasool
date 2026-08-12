@@ -1,0 +1,141 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Navbar */
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 15px 30px;
+
+    border-bottom: 1px solid #ddd;
+}
+
+.navbar-logo a {
+    text-decoration: none;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.navbar-links {
+    display: flex;
+    gap: 20px;
+}
+
+.navbar-links a {
+    text-decoration: none;
+}
+
+/* Hero */
+
+.hero {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.hero h1 {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.hero p {
+    font-size: 18px;
+    margin-bottom: 25px;
+}
+
+.hero button {
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Home content */
+
+.home-content {
+    text-align: center;
+    padding: 40px;
+}
+
+/* =========================
+   PRODUCTS PAGE
+========================= */
+
+.products-page {
+    padding: 40px;
+}
+
+.products-page h1 {
+    margin-bottom: 30px;
+}
+
+/* Product grid */
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 25px;
+}
+
+/* Product card */
+
+.product-card {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 20px;
+    background-color: white;
+}
+
+/* Product image */
+
+.product-image {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Product information */
+
+.product-info h2 {
+    margin-bottom: 10px;
+}
+
+.product-info h3 {
+    font-size: 22px;
+    margin: 15px 0;
+}
+
+.product-info p {
+    margin: 7px 0;
+}
+
+/* View details button */
+
+.product-info a {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 10px 16px;
+    background-color: #4f46e5;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+}
+
+.product-info a:hover {
+    background-color: #3730a3;
+}

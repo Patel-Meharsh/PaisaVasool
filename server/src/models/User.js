@@ -44,6 +44,12 @@ const userSchema = new mongoose.Schema(
         isEmailVerified: {
             type: Boolean,
             default: false
+        },
+
+        // Indicates whether the customer account is active
+        isActive: {
+            type: Boolean,
+            default: true
         }
     },
 

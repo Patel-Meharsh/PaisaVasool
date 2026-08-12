@@ -3,6 +3,7 @@
 // ============================================================
 
 // Import Express
+
 const express = require("express");
 
 const router = express.Router();
@@ -24,16 +25,28 @@ const {
 // AUTHENTICATION MIDDLEWARE
 // ============================================================
 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware =
+    require("../middleware/authMiddleware");
+
+
+// ============================================================
+// ADMIN AUTHORIZATION MIDDLEWARE
+// ============================================================
+
+const authorize =
+    require("../middleware/roleMiddleware");
 
 
 // ============================================================
 // GET ALL RETURN REQUESTS
 // ============================================================
 
+// GET /api/admin/returns
+
 router.get(
     "/",
     authMiddleware,
+    authorize("admin"),
     getReturnRequests
 );
 
@@ -41,15 +54,13 @@ router.get(
 // ============================================================
 // APPROVE RETURN
 // ============================================================
-//
+
 // PUT /api/admin/returns/:id/approve
-//
-// :id = PaisaVasool Order ID
-// ============================================================
 
 router.put(
     "/:id/approve",
     authMiddleware,
+    authorize("admin"),
     approveReturn
 );
 
@@ -57,13 +68,13 @@ router.put(
 // ============================================================
 // REJECT RETURN
 // ============================================================
-//
+
 // PUT /api/admin/returns/:id/reject
-// ============================================================
 
 router.put(
     "/:id/reject",
     authMiddleware,
+    authorize("admin"),
     rejectReturn
 );
 
@@ -71,13 +82,13 @@ router.put(
 // ============================================================
 // PROCESS REFUND
 // ============================================================
-//
+
 // POST /api/admin/returns/:id/refund
-// ============================================================
 
 router.post(
     "/:id/refund",
     authMiddleware,
+    authorize("admin"),
     processRefund
 );
 

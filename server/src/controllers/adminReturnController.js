@@ -441,9 +441,6 @@ const processRefund = async (req, res) => {
         order.paymentStatus =
             "refunded";
 
-        order.returnStatus =
-            "received";
-
         order.returnProcessedAt =
             new Date();
 

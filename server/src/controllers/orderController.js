@@ -6,6 +6,11 @@ const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 
+// ============================================================
+// IMPORT RAZORPAY
+// ============================================================
+
+const razorpay = require("../utils/razorpay");
 
 // ============================================================
 // IMPORT EMAIL FUNCTIONS
@@ -460,6 +465,11 @@ const getOrderById = async (req, res) => {
 // Restore product stock
 // ============================================================
 
+// ============================================================
+// CANCEL ORDER
+// Restore stock + initiate Razorpay refund if required
+// ============================================================
+
 const cancelOrder = async (req, res) => {
 
     try {
@@ -470,7 +480,7 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Find user's order
+        // 1. Find user's order
         // ----------------------------------------------------
 
         const order = await Order.findOne({
@@ -495,7 +505,7 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Only pending or confirmed orders can be cancelled
+        // 2. Only pending or confirmed orders can be cancelled
         // ----------------------------------------------------
 
         if (
@@ -517,7 +527,178 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Restore product stock
+        // 3. Handle online payment refund
+        // ----------------------------------------------------
+        //
+        // If the order was paid online, a Razorpay refund
+        // must be initiated before we finish cancellation.
+        //
+        // ----------------------------------------------------
+
+        let refund = null;
+
+
+        if (
+            order.paymentMethod === "online" &&
+            order.paymentStatus === "paid"
+        ) {
+
+            // ------------------------------------------------
+            // Make sure payment ID exists
+            // ------------------------------------------------
+
+            if (!order.razorpayPaymentId) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Razorpay payment ID is missing. Refund cannot be processed."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Prevent duplicate refund
+            // ------------------------------------------------
+
+            if (
+                order.razorpayRefundId ||
+                order.refundStatus === "initiated" ||
+                order.refundStatus === "processed"
+            ) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Refund has already been initiated for this order."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Mark refund as pending
+            // ------------------------------------------------
+
+            order.refundStatus =
+                "pending";
+
+            await order.save();
+
+
+            // ------------------------------------------------
+            // Convert rupees to paise
+            // ------------------------------------------------
+
+            const refundAmount =
+                Math.round(
+                    order.totalAmount * 100
+                );
+
+
+            try {
+
+                // --------------------------------------------
+                // Create Razorpay normal refund
+                // --------------------------------------------
+
+                refund =
+                    await razorpay.payments.refund(
+
+                        order.razorpayPaymentId,
+
+                        {
+
+                            amount:
+                                refundAmount,
+
+                            speed:
+                                "normal",
+
+                            notes: {
+
+                                paisaVasoolOrderId:
+                                    order._id.toString(),
+
+                                reason:
+                                    "Order cancelled by customer"
+
+                            },
+
+                            receipt:
+                                `REFUND_${order._id}`
+
+                        }
+
+                    );
+
+
+                // --------------------------------------------
+                // Save Razorpay refund information
+                // --------------------------------------------
+
+                order.razorpayRefundId =
+                    refund.id;
+
+
+                // Razorpay can return statuses such as
+                // "processed" or "pending".
+                //
+                // We map them to our own refund statuses.
+
+                if (
+                    refund.status === "processed"
+                ) {
+
+                    order.refundStatus =
+                        "processed";
+
+                } else {
+
+                    order.refundStatus =
+                        "initiated";
+
+                }
+
+
+            } catch (refundError) {
+
+                console.error(
+
+                    "Razorpay refund error:",
+
+                    refundError.message
+
+                );
+
+
+                // --------------------------------------------
+                // Refund failed
+                // --------------------------------------------
+
+                order.refundStatus =
+                    "failed";
+
+                await order.save();
+
+
+                return res.status(400).json({
+
+                    message:
+                        "Order cancellation failed because the refund could not be initiated."
+
+                });
+
+            }
+
+        }
+
+
+        // ----------------------------------------------------
+        // 4. Restore product stock
         // ----------------------------------------------------
 
         for (const item of order.items) {
@@ -543,7 +724,7 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Update order status
+        // 5. Cancel order
         // ----------------------------------------------------
 
         order.status =
@@ -551,23 +732,20 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Handle refund status
-        // ----------------------------------------------------
-        //
-        // If payment was completed, do NOT immediately
-        // mark it as "refunded".
-        //
-        // Actual Razorpay refund processing must happen
-        // separately.
-        //
+        // 6. Mark payment as refunded only when Razorpay
+        // confirms the refund as processed.
         // ----------------------------------------------------
 
         if (
-            order.paymentStatus === "paid"
+
+            refund &&
+
+            refund.status === "processed"
+
         ) {
 
-            order.refundStatus =
-                "pending";
+            order.paymentStatus =
+                "refunded";
 
         }
 
@@ -576,34 +754,59 @@ const cancelOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Response
+        // 7. Response
         // ----------------------------------------------------
 
         res.status(200).json({
 
             message:
-                "Order cancelled successfully and stock restored",
+                refund
+
+                    ? "Order cancelled successfully and refund initiated"
+
+                    : "Order cancelled successfully and stock restored",
 
             order
 
         });
 
 
-    } catch (error) {
+    } catch (refundError) {
 
         console.error(
-
-            "Cancel order error:",
-
-            error.message
-
+            "Razorpay refund error:"
         );
 
+        console.error(
+            "Full error:",
+            refundError
+        );
 
-        res.status(500).json({
+        console.error(
+            "Error response:",
+            refundError?.error
+        );
+
+        console.error(
+            "Error description:",
+            refundError?.error?.description
+        );
+
+        console.error(
+            "Error code:",
+            refundError?.error?.code
+        );
+
+        order.refundStatus = "failed";
+
+        await order.save();
+
+        return res.status(400).json({
 
             message:
-                "Server error"
+                refundError?.error?.description ||
+                refundError?.message ||
+                "Refund could not be initiated"
 
         });
 
