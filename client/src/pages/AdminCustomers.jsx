@@ -5,11 +5,17 @@ function AdminCustomer() {
 
     const navigate = useNavigate();
 
+    // ============================================================
+    // STATE
+    // ============================================================
+
     const [customers, setCustomers] = useState([]);
 
     const [loading, setLoading] = useState(true);
 
     const [error, setError] = useState("");
+
+    const [success, setSuccess] = useState("");
 
     const [updatingCustomerId, setUpdatingCustomerId] =
         useState(null);
@@ -23,12 +29,16 @@ function AdminCustomer() {
 
         try {
 
+            setLoading(true);
+
+            setError("");
+
             const token =
                 localStorage.getItem("token");
 
 
             // ----------------------------------------------------
-            // Check login
+            // CHECK LOGIN
             // ----------------------------------------------------
 
             if (!token) {
@@ -41,25 +51,19 @@ function AdminCustomer() {
 
 
             // ----------------------------------------------------
-            // Fetch customers
+            // FETCH CUSTOMERS
             // ----------------------------------------------------
 
             const response = await fetch(
-
                 "http://localhost:5000/api/admin/customers",
-
                 {
                     method: "GET",
 
                     headers: {
-
                         Authorization:
                             `Bearer ${token}`
-
                     }
-
                 }
-
             );
 
 
@@ -68,23 +72,21 @@ function AdminCustomer() {
 
 
             // ----------------------------------------------------
-            // Handle error
+            // HANDLE API ERROR
             // ----------------------------------------------------
 
             if (!response.ok) {
 
                 throw new Error(
-
                     data.message ||
                     "Failed to fetch customers"
-
                 );
 
             }
 
 
             // ----------------------------------------------------
-            // Save customers
+            // STORE CUSTOMERS
             // ----------------------------------------------------
 
             setCustomers(
@@ -95,13 +97,9 @@ function AdminCustomer() {
         } catch (error) {
 
             console.error(
-
                 "Admin customers error:",
-
                 error
-
             );
-
 
             setError(
                 error.message
@@ -145,13 +143,15 @@ function AdminCustomer() {
 
             setError("");
 
+            setSuccess("");
+
 
             const token =
                 localStorage.getItem("token");
 
 
             // ----------------------------------------------------
-            // Check login
+            // CHECK LOGIN
             // ----------------------------------------------------
 
             if (!token) {
@@ -164,13 +164,11 @@ function AdminCustomer() {
 
 
             // ----------------------------------------------------
-            // Update customer status
+            // UPDATE CUSTOMER STATUS
             // ----------------------------------------------------
 
             const response = await fetch(
-
                 `http://localhost:5000/api/admin/customers/${customerId}/status`,
-
                 {
                     method: "PUT",
 
@@ -192,7 +190,6 @@ function AdminCustomer() {
                     })
 
                 }
-
             );
 
 
@@ -201,23 +198,21 @@ function AdminCustomer() {
 
 
             // ----------------------------------------------------
-            // Handle error
+            // HANDLE API ERROR
             // ----------------------------------------------------
 
             if (!response.ok) {
 
                 throw new Error(
-
                     data.message ||
                     "Failed to update customer status"
-
                 );
 
             }
 
 
             // ----------------------------------------------------
-            // Update customer directly in UI
+            // UPDATE CUSTOMER IN UI
             // ----------------------------------------------------
 
             setCustomers(
@@ -247,16 +242,23 @@ function AdminCustomer() {
             );
 
 
+            // ----------------------------------------------------
+            // SUCCESS MESSAGE
+            // ----------------------------------------------------
+
+            setSuccess(
+                newStatus
+                    ? "Customer activated successfully."
+                    : "Customer deactivated successfully."
+            );
+
+
         } catch (error) {
 
             console.error(
-
                 "Update customer status error:",
-
                 error
-
             );
-
 
             setError(
                 error.message
@@ -282,11 +284,20 @@ function AdminCustomer() {
 
         return (
 
-            <div>
+            <div className="admin-page">
 
-                <h2>
-                    Loading customers...
-                </h2>
+                <div className="admin-loading">
+
+                    <h2>
+                        Loading customers...
+                    </h2>
+
+                    <p>
+                        Please wait while customer
+                        accounts are being loaded.
+                    </p>
+
+                </div>
 
             </div>
 
@@ -301,230 +312,326 @@ function AdminCustomer() {
 
     return (
 
-        <div>
+        <div className="admin-page">
 
-            {/* ==================================================
+
+            {/* ====================================================
                 HEADER
-            ================================================== */}
+            ==================================================== */}
 
-            <Link to="/admin">
-                ← Back to Dashboard
-            </Link>
-
-
-            <h1>
-                Admin Customers
-            </h1>
-
-
-            <p>
-                Manage PaisaVasool customer accounts.
-            </p>
-
-
-            {/* ==================================================
-                ERROR
-            ================================================== */}
-
-            {error && (
-
-                <p>
-                    {error}
-                </p>
-
-            )}
-
-
-            {/* ==================================================
-                NO CUSTOMERS
-            ================================================== */}
-
-            {customers.length === 0 ? (
-
-                <h2>
-                    No customers found.
-                </h2>
-
-            ) : (
+            <div className="admin-page-header">
 
                 <div>
 
-                    {/* ==================================================
-                        CUSTOMERS
-                    ================================================== */}
+                    <Link to="/admin">
+                        ← Back to Dashboard
+                    </Link>
 
-                    {customers.map(
-                        (customer) => (
+                    <h1>
+                        Customer Management
+                    </h1>
 
-                            <div
-                                key={
-                                    customer._id
-                                }
-                            >
+                    <p>
+                        Manage PaisaVasool customer
+                        accounts and account status.
+                    </p>
 
-                                <hr />
-
-
-                                {/* ==========================================
-                                    CUSTOMER INFORMATION
-                                ========================================== */}
-
-                                <h2>
-                                    {customer.name}
-                                </h2>
+                </div>
 
 
-                                <p>
-                                    Customer ID:{" "}
+                <div className="admin-page-count">
 
-                                    {customer._id}
-                                </p>
+                    <strong>
+                        {customers.length}
+                    </strong>
 
+                    <span>
+                        Customers
+                    </span>
 
-                                <p>
-                                    Email:{" "}
+                </div>
 
-                                    {customer.email}
-                                </p>
-
-
-                                {/* ==========================================
-                                    ROLE
-                                ========================================== */}
-
-                                <p>
-                                    Role:{" "}
-
-                                    <strong>
-                                        {customer.role}
-                                    </strong>
-                                </p>
+            </div>
 
 
-                                {/* ==========================================
-                                    EMAIL VERIFICATION
-                                ========================================== */}
+            {/* ====================================================
+                ERROR MESSAGE
+            ==================================================== */}
 
-                                <p>
-                                    Email Verified:{" "}
+            {error && (
 
-                                    <strong>
+                <div className="admin-error">
 
-                                        {
-                                            customer.isEmailVerified
-                                                ? "Yes"
-                                                : "No"
-                                        }
-
-                                    </strong>
-
-                                </p>
-
-
-                                {/* ==========================================
-                                    REGISTRATION DATE
-                                ========================================== */}
-
-                                <p>
-                                    Registered On:{" "}
-
-                                    {customer.createdAt
-
-                                        ? new Date(
-                                            customer.createdAt
-                                        ).toLocaleString()
-
-                                        : "Unknown"
-
-                                    }
-
-                                </p>
-
-
-                                {/* ==========================================
-                                    ACCOUNT STATUS
-                                ========================================== */}
-
-                                <h3>
-                                    Account Status
-                                </h3>
-
-
-                                <p>
-
-                                    Current Status:{" "}
-
-                                    <strong>
-
-                                        {customer.isActive
-                                            ? "Active"
-                                            : "Inactive"}
-
-                                    </strong>
-
-                                </p>
-
-
-                                {/* ==========================================
-                                    STATUS BUTTON
-                                ========================================== */}
-
-                                <button
-
-                                    disabled={
-                                        updatingCustomerId ===
-                                        customer._id
-                                    }
-
-                                    onClick={() =>
-                                        handleStatusChange(
-
-                                            customer._id,
-
-                                            !customer.isActive
-
-                                        )
-                                    }
-
-                                >
-
-                                    {updatingCustomerId ===
-                                    customer._id
-
-                                        ? "Updating..."
-
-                                        : customer.isActive
-                                            ? "Deactivate Customer"
-                                            : "Activate Customer"
-
-                                    }
-
-                                </button>
-
-
-                                {updatingCustomerId ===
-                                    customer._id && (
-
-                                    <p>
-                                        Updating customer
-                                        status...
-                                    </p>
-
-                                )}
-
-                            </div>
-
-                        )
-
-                    )}
+                    {error}
 
                 </div>
 
             )}
 
 
+            {/* ====================================================
+                SUCCESS MESSAGE
+            ==================================================== */}
+
+            {success && (
+
+                <div className="admin-success">
+
+                    {success}
+
+                </div>
+
+            )}
+
+
+            {/* ====================================================
+                NO CUSTOMERS
+            ==================================================== */}
+
+            {customers.length === 0 ? (
+
+                <div className="admin-empty-state">
+
+                    <h2>
+                        No customers found
+                    </h2>
+
+                    <p>
+                        There are currently no customer
+                        accounts to display.
+                    </p>
+
+                </div>
+
+            ) : (
+
+                <div className="admin-customer-list">
+
+                    {customers.map(
+                        (customer) => (
+
+                            <div
+                                className="admin-customer-card"
+                                key={customer._id}
+                            >
+
+
+                                {/* ====================================
+                                    CUSTOMER HEADER
+                                ==================================== */}
+
+                                <div className="customer-card-header">
+
+                                    <div>
+
+                                        <h2>
+                                            {customer.name}
+                                        </h2>
+
+                                        <p className="customer-email">
+                                            {customer.email}
+                                        </p>
+
+                                    </div>
+
+
+                                    <span
+                                        className={
+                                            customer.isActive
+                                                ? "status-badge active"
+                                                : "status-badge inactive"
+                                        }
+                                    >
+
+                                        {customer.isActive
+                                            ? "Active"
+                                            : "Inactive"}
+
+                                    </span>
+
+                                </div>
+
+
+                                {/* ====================================
+                                    CUSTOMER DETAILS
+                                ==================================== */}
+
+                                <div className="customer-details">
+
+
+                                    {/* ROLE */}
+
+                                    <div className="customer-detail">
+
+                                        <span className="detail-label">
+                                            Role
+                                        </span>
+
+                                        <strong>
+                                            {customer.role || "Customer"}
+                                        </strong>
+
+                                    </div>
+
+
+                                    {/* EMAIL VERIFICATION */}
+
+                                    <div className="customer-detail">
+
+                                        <span className="detail-label">
+                                            Email Verification
+                                        </span>
+
+                                        <strong
+                                            className={
+                                                customer.isEmailVerified
+                                                    ? "verified-text"
+                                                    : "unverified-text"
+                                            }
+                                        >
+
+                                            {customer.isEmailVerified
+                                                ? "Verified"
+                                                : "Not Verified"}
+
+                                        </strong>
+
+                                    </div>
+
+
+                                    {/* REGISTRATION DATE */}
+
+                                    <div className="customer-detail">
+
+                                        <span className="detail-label">
+                                            Registered On
+                                        </span>
+
+                                        <strong>
+
+                                            {customer.createdAt
+
+                                                ? new Date(
+                                                    customer.createdAt
+                                                ).toLocaleDateString(
+                                                    "en-IN",
+                                                    {
+                                                        day: "2-digit",
+                                                        month: "short",
+                                                        year: "numeric"
+                                                    }
+                                                )
+
+                                                : "Unknown"}
+
+                                        </strong>
+
+                                    </div>
+
+
+                                    {/* CUSTOMER ID */}
+
+                                    <div className="customer-detail customer-id">
+
+                                        <span className="detail-label">
+                                            Customer ID
+                                        </span>
+
+                                        <span>
+                                            {customer._id}
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+
+                                {/* ====================================
+                                    ACCOUNT STATUS
+                                ==================================== */}
+
+                                <div className="customer-status-section">
+
+                                    <div>
+
+                                        <span className="detail-label">
+                                            Account Status
+                                        </span>
+
+                                        <p>
+
+                                            This account is currently{" "}
+
+                                            <strong>
+                                                {customer.isActive
+                                                    ? "active"
+                                                    : "inactive"}
+                                            </strong>
+
+                                            .
+
+                                        </p>
+
+                                    </div>
+
+
+                                    {/* =================================
+                                        STATUS BUTTON
+                                    ================================= */}
+
+                                    <button
+
+                                        className={
+                                            customer.isActive
+                                                ? "customer-action-btn deactivate"
+                                                : "customer-action-btn activate"
+                                        }
+
+                                        disabled={
+                                            updatingCustomerId ===
+                                            customer._id
+                                        }
+
+                                        onClick={() =>
+                                            handleStatusChange(
+
+                                                customer._id,
+
+                                                !customer.isActive
+
+                                            )
+                                        }
+
+                                    >
+
+                                        {updatingCustomerId ===
+                                        customer._id
+
+                                            ? "Updating..."
+
+                                            : customer.isActive
+                                                ? "Deactivate Customer"
+                                                : "Activate Customer"}
+
+                                    </button>
+
+                                </div>
+
+
+                            </div>
+
+                        )
+                    )}
+
+                </div>
+
+            )}
+
         </div>
 
     );
+
 }
+
+
 export default AdminCustomer;

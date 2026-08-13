@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function AdminReturns() {
-
     const navigate = useNavigate();
 
     // ============================================================
@@ -10,524 +9,344 @@ function AdminReturns() {
     // ============================================================
 
     const [returns, setReturns] = useState([]);
-
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState("");
-
     const [actionLoading, setActionLoading] = useState(null);
-
 
     // ============================================================
     // FETCH RETURN REQUESTS
     // ============================================================
 
     const fetchReturns = async () => {
-
         try {
-
             setLoading(true);
-
             setError("");
 
-            const token =
-                localStorage.getItem("token");
-
-
-            // ----------------------------------------------------
-            // Check login
-            // ----------------------------------------------------
+            const token = localStorage.getItem("token");
 
             if (!token) {
-
                 navigate("/login");
-
                 return;
-
             }
-
-
-            // ----------------------------------------------------
-            // Fetch return requests
-            // ----------------------------------------------------
 
             const response = await fetch(
                 "http://localhost:5000/api/admin/returns",
                 {
                     method: "GET",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${token}`
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-
-            const data =
-                await response.json();
-
-
-            // ----------------------------------------------------
-            // Handle API error
-            // ----------------------------------------------------
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Failed to fetch return requests"
                 );
-
             }
 
-
-            // ----------------------------------------------------
-            // Store returns
-            // ----------------------------------------------------
-
-            setReturns(
-                data.returns || []
-            );
-
+            setReturns(data.returns || []);
 
         } catch (error) {
-
             console.error(
                 "Fetch return requests error:",
                 error
             );
 
-            setError(
-                error.message
-            );
-
+            setError(error.message);
 
         } finally {
-
             setLoading(false);
-
         }
-
     };
-
 
     // ============================================================
     // LOAD RETURN REQUESTS
     // ============================================================
 
     useEffect(() => {
-
         fetchReturns();
-
     }, []);
-
 
     // ============================================================
     // APPROVE RETURN
     // ============================================================
 
     const handleApprove = async (orderId) => {
-
         try {
-
             setActionLoading(orderId);
-
             setError("");
 
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             const response = await fetch(
                 `http://localhost:5000/api/admin/returns/${orderId}/approve`,
                 {
                     method: "PUT",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${token}`
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Failed to approve return"
                 );
-
             }
 
+            setReturns((previousReturns) =>
+                previousReturns.map((order) => {
+                    if (order._id === orderId) {
+                        return {
+                            ...order,
+                            returnStatus:
+                                data.order.returnStatus,
+                            returnProcessedAt:
+                                new Date().toISOString()
+                        };
+                    }
 
-            // ----------------------------------------------------
-            // Update only the selected order
-            // ----------------------------------------------------
-
-            setReturns(
-                (previousReturns) =>
-
-                    previousReturns.map(
-                        (order) => {
-
-                            if (
-                                order._id === orderId
-                            ) {
-
-                                return {
-                                    ...order,
-
-                                    returnStatus:
-                                        data.order.returnStatus,
-
-                                    returnProcessedAt:
-                                        new Date().toISOString()
-                                };
-
-                            }
-
-
-                            return order;
-
-                        }
-                    )
+                    return order;
+                })
             );
 
-
         } catch (error) {
-
             console.error(
                 "Approve return error:",
                 error
             );
 
-            setError(
-                error.message
-            );
-
+            setError(error.message);
 
         } finally {
-
             setActionLoading(null);
-
         }
-
     };
-
 
     // ============================================================
     // REJECT RETURN
     // ============================================================
 
     const handleReject = async (orderId) => {
-
-        const confirmed =
-            window.confirm(
-                "Are you sure you want to reject this return?"
-            );
-
+        const confirmed = window.confirm(
+            "Are you sure you want to reject this return?"
+        );
 
         if (!confirmed) {
-
             return;
-
         }
 
-
         try {
-
             setActionLoading(orderId);
-
             setError("");
 
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             const response = await fetch(
                 `http://localhost:5000/api/admin/returns/${orderId}/reject`,
                 {
                     method: "PUT",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${token}`
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Failed to reject return"
                 );
-
             }
 
+            setReturns((previousReturns) =>
+                previousReturns.map((order) => {
+                    if (order._id === orderId) {
+                        return {
+                            ...order,
+                            returnStatus:
+                                data.order.returnStatus,
+                            returnProcessedAt:
+                                new Date().toISOString()
+                        };
+                    }
 
-            // ----------------------------------------------------
-            // Update only the selected order
-            // ----------------------------------------------------
-
-            setReturns(
-                (previousReturns) =>
-
-                    previousReturns.map(
-                        (order) => {
-
-                            if (
-                                order._id === orderId
-                            ) {
-
-                                return {
-                                    ...order,
-
-                                    returnStatus:
-                                        data.order.returnStatus,
-
-                                    returnProcessedAt:
-                                        new Date().toISOString()
-                                };
-
-                            }
-
-
-                            return order;
-
-                        }
-                    )
+                    return order;
+                })
             );
 
-
         } catch (error) {
-
             console.error(
                 "Reject return error:",
                 error
             );
 
-            setError(
-                error.message
-            );
-
+            setError(error.message);
 
         } finally {
-
             setActionLoading(null);
-
         }
-
     };
-
 
     // ============================================================
     // PROCESS REFUND
     // ============================================================
 
     const handleRefund = async (orderId) => {
-
-        const confirmed =
-            window.confirm(
-                "Are you sure you want to process this refund?"
-            );
-
+        const confirmed = window.confirm(
+            "Are you sure you want to process this refund?"
+        );
 
         if (!confirmed) {
-
             return;
-
         }
 
-
         try {
-
             setActionLoading(orderId);
-
             setError("");
 
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             const response = await fetch(
                 `http://localhost:5000/api/admin/returns/${orderId}/refund`,
                 {
                     method: "POST",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${token}`
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                     "Failed to process refund"
                 );
-
             }
 
+            setReturns((previousReturns) =>
+                previousReturns.map((order) => {
+                    if (order._id === orderId) {
+                        return {
+                            ...order,
+                            returnStatus:
+                                data.order.returnStatus,
+                            refundStatus:
+                                data.order.refundStatus,
+                            paymentStatus:
+                                data.order.paymentStatus
+                        };
+                    }
 
-            // ----------------------------------------------------
-            // Update only the selected order
-            // ----------------------------------------------------
-
-            setReturns(
-                (previousReturns) =>
-
-                    previousReturns.map(
-                        (order) => {
-
-                            if (
-                                order._id === orderId
-                            ) {
-
-                                return {
-                                    ...order,
-
-                                    returnStatus:
-                                        data.order.returnStatus,
-
-                                    refundStatus:
-                                        data.order.refundStatus,
-
-                                    paymentStatus:
-                                        data.order.paymentStatus
-                                };
-
-                            }
-
-
-                            return order;
-
-                        }
-                    )
+                    return order;
+                })
             );
 
-
         } catch (error) {
-
             console.error(
                 "Refund error:",
                 error
             );
 
-            setError(
-                error.message
-            );
-
+            setError(error.message);
 
         } finally {
-
             setActionLoading(null);
-
         }
-
     };
-
 
     // ============================================================
     // LOADING SCREEN
     // ============================================================
 
     if (loading) {
-
         return (
-
-            <div>
-
-                <h2>
-                    Loading return requests...
-                </h2>
-
+            <div className="admin-page admin-loading-page">
+                <div className="admin-loading-card">
+                    <h2>
+                        Loading return requests...
+                    </h2>
+                </div>
             </div>
-
         );
-
     }
-
 
     // ============================================================
     // MAIN UI
     // ============================================================
 
     return (
+        <div className="admin-page">
 
-        <div>
+            {/* ====================================================
+                HEADER
+            ==================================================== */}
 
-            {/* ==================================================
-                BACK TO ADMIN DASHBOARD
-            ================================================== */}
+            <div className="admin-page-header">
 
-            <Link to="/admin">
-                ← Back to Admin Dashboard
-            </Link>
+                <div>
+                    <Link
+                        to="/admin"
+                        className="admin-back-link"
+                    >
+                        ← Back to Admin Dashboard
+                    </Link>
 
+                    <h1>
+                        Return & Refund Management
+                    </h1>
 
-            {/* ==================================================
-                PAGE TITLE
-            ================================================== */}
+                    <p>
+                        Manage customer return requests
+                        and refunds.
+                    </p>
+                </div>
 
-            <h1>
-                Return & Refund Management
-            </h1>
+            </div>
 
-
-            <p>
-                Manage customer return requests and refunds.
-            </p>
-
-
-            {/* ==================================================
+            {/* ====================================================
                 ERROR
-            ================================================== */}
+            ==================================================== */}
 
             {error && (
-
-                <p>
+                <div className="admin-error">
                     {error}
-                </p>
-
+                </div>
             )}
 
-
-            {/* ==================================================
+            {/* ====================================================
                 NO RETURN REQUESTS
-            ================================================== */}
+            ==================================================== */}
 
             {returns.length === 0 ? (
 
-                <div>
+                <div className="admin-empty-state">
 
                     <h2>
                         No return requests found.
                     </h2>
 
+                    <p>
+                        There are currently no customer
+                        return requests to manage.
+                    </p>
+
                 </div>
 
             ) : (
 
-                <div>
+                <div className="admin-returns-list">
 
                     {/* ==================================================
                         EACH RETURN REQUEST
@@ -536,328 +355,374 @@ function AdminReturns() {
                     {returns.map((order) => (
 
                         <div
+                            className="admin-return-card"
                             key={order._id}
-                            style={{
-                                border: "1px solid #ccc",
-                                padding: "20px",
-                                marginBottom: "25px"
-                            }}
                         >
 
                             {/* ==========================================
-                                ORDER INFORMATION
+                                CARD HEADER
                             ========================================== */}
 
-                            <h2>
-                                Order #{order._id}
-                            </h2>
+                            <div className="admin-return-header">
 
+                                <div>
+                                    <h2>
+                                        Order #{order._id}
+                                    </h2>
 
-                            <p>
-                                Order Date:{" "}
-                                {new Date(
-                                    order.createdAt
-                                ).toLocaleString()}
-                            </p>
+                                    <p>
+                                        Order Date:{" "}
+                                        {new Date(
+                                            order.createdAt
+                                        ).toLocaleString()}
+                                    </p>
+                                </div>
 
+                                <span
+                                    className={`return-status return-status-${order.returnStatus}`}
+                                >
+                                    {order.returnStatus}
+                                </span>
 
-                            <p>
-                                Order Status:{" "}
+                            </div>
 
-                                <strong>
-                                    {order.status}
-                                </strong>
-                            </p>
+                            {/* ==========================================
+                                ORDER STATUS
+                            ========================================== */}
 
+                            <div className="admin-return-section">
+
+                                <h3>
+                                    Order Information
+                                </h3>
+
+                                <div className="admin-info-grid">
+
+                                    <div>
+                                        <span>
+                                            Order Status
+                                        </span>
+
+                                        <strong>
+                                            {order.status}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>
+                                            Order Amount
+                                        </span>
+
+                                        <strong>
+                                            ₹
+                                            {Number(
+                                                order.totalAmount || 0
+                                            ).toLocaleString(
+                                                "en-IN"
+                                            )}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
 
                             {/* ==========================================
                                 CUSTOMER INFORMATION
                             ========================================== */}
 
-                            <h3>
-                                Customer
-                            </h3>
+                            <div className="admin-return-section">
 
+                                <h3>
+                                    Customer
+                                </h3>
 
-                            <p>
-                                Name:{" "}
-                                {order.user?.name ||
-                                    "Unknown"}
-                            </p>
+                                <div className="admin-info-grid">
 
+                                    <div>
+                                        <span>
+                                            Name
+                                        </span>
 
-                            <p>
-                                Email:{" "}
-                                {order.user?.email ||
-                                    "Unknown"}
-                            </p>
+                                        <strong>
+                                            {order.user?.name ||
+                                                "Unknown"}
+                                        </strong>
+                                    </div>
 
+                                    <div>
+                                        <span>
+                                            Email
+                                        </span>
+
+                                        <strong>
+                                            {order.user?.email ||
+                                                "Unknown"}
+                                        </strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
 
                             {/* ==========================================
                                 RETURN INFORMATION
                             ========================================== */}
 
-                            <h3>
-                                Return Information
-                            </h3>
+                            <div className="admin-return-section">
 
+                                <h3>
+                                    Return Information
+                                </h3>
 
-                            <p>
-                                Return Status:{" "}
+                                <div className="admin-info-grid">
 
-                                <strong>
-                                    {order.returnStatus}
-                                </strong>
-                            </p>
+                                    <div>
+                                        <span>
+                                            Return Status
+                                        </span>
 
+                                        <strong
+                                            className={`return-status-text return-status-text-${order.returnStatus}`}
+                                        >
+                                            {order.returnStatus}
+                                        </strong>
+                                    </div>
 
-                            <p>
-                                Return Reason:{" "}
+                                    <div>
+                                        <span>
+                                            Return Reason
+                                        </span>
 
-                                {order.returnReason ||
-                                    "No reason provided"}
-                            </p>
+                                        <strong>
+                                            {order.returnReason ||
+                                                "No reason provided"}
+                                        </strong>
+                                    </div>
 
+                                    {order.returnRequestedAt && (
+                                        <div>
+                                            <span>
+                                                Requested At
+                                            </span>
 
-                            {order.returnRequestedAt && (
+                                            <strong>
+                                                {new Date(
+                                                    order.returnRequestedAt
+                                                ).toLocaleString()}
+                                            </strong>
+                                        </div>
+                                    )}
 
-                                <p>
-                                    Requested At:{" "}
+                                    {order.returnProcessedAt && (
+                                        <div>
+                                            <span>
+                                                Processed At
+                                            </span>
 
-                                    {new Date(
-                                        order.returnRequestedAt
-                                    ).toLocaleString()}
-                                </p>
+                                            <strong>
+                                                {new Date(
+                                                    order.returnProcessedAt
+                                                ).toLocaleString()}
+                                            </strong>
+                                        </div>
+                                    )}
 
-                            )}
+                                </div>
 
-
-                            {order.returnProcessedAt && (
-
-                                <p>
-                                    Processed At:{" "}
-
-                                    {new Date(
-                                        order.returnProcessedAt
-                                    ).toLocaleString()}
-                                </p>
-
-                            )}
-
+                            </div>
 
                             {/* ==========================================
                                 PAYMENT INFORMATION
                             ========================================== */}
 
-                            <h3>
-                                Payment Information
-                            </h3>
+                            <div className="admin-return-section">
 
+                                <h3>
+                                    Payment Information
+                                </h3>
 
-                            <p>
-                                Payment Method:{" "}
+                                <div className="admin-info-grid">
 
-                                <strong>
-                                    {order.paymentMethod}
-                                </strong>
-                            </p>
+                                    <div>
+                                        <span>
+                                            Payment Method
+                                        </span>
 
+                                        <strong>
+                                            {order.paymentMethod}
+                                        </strong>
+                                    </div>
 
-                            <p>
-                                Payment Status:{" "}
+                                    <div>
+                                        <span>
+                                            Payment Status
+                                        </span>
 
-                                <strong>
-                                    {order.paymentStatus}
-                                </strong>
-                            </p>
+                                        <strong>
+                                            {order.paymentStatus}
+                                        </strong>
+                                    </div>
 
+                                    <div>
+                                        <span>
+                                            Refund Status
+                                        </span>
 
-                            <p>
-                                Refund Status:{" "}
+                                        <strong>
+                                            {order.refundStatus}
+                                        </strong>
+                                    </div>
 
-                                <strong>
-                                    {order.refundStatus}
-                                </strong>
-                            </p>
+                                    <div>
+                                        <span>
+                                            Amount
+                                        </span>
 
+                                        <strong>
+                                            ₹
+                                            {Number(
+                                                order.totalAmount || 0
+                                            ).toLocaleString(
+                                                "en-IN"
+                                            )}
+                                        </strong>
+                                    </div>
 
-                            <p>
-                                Order Amount:{" "}
+                                </div>
 
-                                <strong>
-                                    ₹{order.totalAmount}
-                                </strong>
-                            </p>
-
+                            </div>
 
                             {/* ==========================================
                                 PRODUCTS
                             ========================================== */}
 
-                            <h3>
-                                Products
-                            </h3>
+                            <div className="admin-return-section">
 
+                                <h3>
+                                    Products
+                                </h3>
 
-                            <div>
+                                <div className="admin-return-products">
 
-                                {order.items.map(
-                                    (item, index) => (
+                                    {order.items.map(
+                                        (item, index) => (
 
-                                        <div
-                                            key={
-                                                item._id ||
-                                                index
-                                            }
-                                            style={{
-                                                marginBottom:
-                                                    "15px"
-                                            }}
-                                        >
+                                            <div
+                                                className="admin-return-product"
+                                                key={
+                                                    item._id ||
+                                                    index
+                                                }
+                                            >
 
-                                            <p>
+                                                <div>
+                                                    <strong>
+                                                        {item.name}
+                                                    </strong>
+
+                                                    <p>
+                                                        ₹
+                                                        {Number(
+                                                            item.price || 0
+                                                        ).toLocaleString(
+                                                            "en-IN"
+                                                        )}
+                                                        {" × "}
+                                                        {item.quantity}
+                                                    </p>
+                                                </div>
+
                                                 <strong>
-                                                    {item.name}
+                                                    ₹
+                                                    {Number(
+                                                        item.price || 0
+                                                    ) *
+                                                        Number(
+                                                            item.quantity || 0
+                                                        )}
                                                 </strong>
-                                            </p>
 
+                                            </div>
 
-                                            <p>
-                                                Price: ₹
-                                                {item.price}
-                                            </p>
+                                        )
+                                    )}
 
-
-                                            <p>
-                                                Quantity:{" "}
-                                                {item.quantity}
-                                            </p>
-
-
-                                            <p>
-                                                Subtotal: ₹
-                                                {item.price *
-                                                    item.quantity}
-                                            </p>
-
-
-                                        </div>
-
-                                    )
-                                )}
+                                </div>
 
                             </div>
 
-
                             {/* ==========================================
-                                APPROVE / REJECT RETURN
+                                ACTIONS
                             ========================================== */}
 
-                            {order.returnStatus ===
-                                "requested" && (
+                            <div className="admin-return-actions">
 
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "20px"
-                                    }}
-                                >
+                                {/* APPROVE / REJECT */}
 
-                                    <button
-                                        onClick={() =>
-                                            handleApprove(
+                                {order.returnStatus ===
+                                    "requested" && (
+
+                                    <>
+                                        <button
+                                            className="admin-btn admin-btn-success"
+                                            onClick={() =>
+                                                handleApprove(
+                                                    order._id
+                                                )
+                                            }
+                                            disabled={
+                                                actionLoading ===
                                                 order._id
-                                            )
-                                        }
-                                        disabled={
-                                            actionLoading ===
+                                            }
+                                        >
+                                            {actionLoading ===
                                             order._id
-                                        }
-                                    >
+                                                ? "Processing..."
+                                                : "Approve Return"}
+                                        </button>
 
-                                        {actionLoading ===
-                                        order._id
-
-                                            ? "Processing..."
-
-                                            : "Approve Return"}
-
-                                    </button>
-
-
-                                    {" "}
-
-
-                                    <button
-                                        onClick={() =>
-                                            handleReject(
+                                        <button
+                                            className="admin-btn admin-btn-danger"
+                                            onClick={() =>
+                                                handleReject(
+                                                    order._id
+                                                )
+                                            }
+                                            disabled={
+                                                actionLoading ===
                                                 order._id
-                                            )
-                                        }
-                                        disabled={
-                                            actionLoading ===
+                                            }
+                                        >
+                                            {actionLoading ===
                                             order._id
-                                        }
-                                    >
+                                                ? "Processing..."
+                                                : "Reject Return"}
+                                        </button>
+                                    </>
+                                )}
 
-                                        {actionLoading ===
-                                        order._id
+                                {/* APPROVED */}
 
-                                            ? "Processing..."
+                                {order.returnStatus ===
+                                    "approved" && (
 
-                                            : "Reject Return"}
-
-                                    </button>
-
-                                </div>
-
-                            )}
-
-
-                            {/* ==========================================
-                                APPROVED RETURN
-                            ========================================== */}
-
-                            {order.returnStatus ===
-                                "approved" && (
-
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "20px"
-                                    }}
-                                >
-
-                                    <p>
+                                    <div className="admin-return-message success">
                                         Return approved.
-                                    </p>
+                                    </div>
+                                )}
 
-                                </div>
+                                {/* ONLINE REFUND */}
 
-                            )}
-
-
-                            {/* ==========================================
-                                ONLINE PAYMENT REFUND
-                            ========================================== */}
-
-                            {order.returnStatus ===
-                                "approved" &&
-
-                            order.paymentMethod ===
-                                "online" &&
-
-                            order.paymentStatus ===
-                                "paid" && (
-
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "15px"
-                                    }}
-                                >
+                                {order.returnStatus ===
+                                    "approved" &&
+                                    order.paymentMethod ===
+                                        "online" &&
+                                    order.paymentStatus ===
+                                        "paid" && (
 
                                     <button
+                                        className="admin-btn admin-btn-primary"
                                         onClick={() =>
                                             handleRefund(
                                                 order._id
@@ -868,133 +733,87 @@ function AdminReturns() {
                                             order._id
                                         }
                                     >
-
                                         {actionLoading ===
                                         order._id
-
                                             ? "Processing Refund..."
-
                                             : "Process Refund"}
-
                                     </button>
+                                )}
 
-                                </div>
+                                {/* COD */}
 
-                            )}
+                                {order.returnStatus ===
+                                    "approved" &&
+                                    order.paymentMethod ===
+                                        "cod" && (
 
-
-                            {/* ==========================================
-                                COD RETURN
-                            ========================================== */}
-
-                            {order.returnStatus ===
-                                "approved" &&
-
-                            order.paymentMethod ===
-                                "cod" && (
-
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "15px"
-                                    }}
-                                >
-
-                                    <p>
+                                    <div className="admin-return-message info">
                                         This is a Cash on Delivery
                                         order. Razorpay refund is
                                         not available.
-                                    </p>
+                                    </div>
+                                )}
 
-                                </div>
+                                {/* REFUND PROCESSED */}
 
-                            )}
+                                {order.refundStatus ===
+                                    "processed" && (
 
-
-                            {/* ==========================================
-                                REFUND PROCESSED
-                            ========================================== */}
-
-                            {order.refundStatus ===
-                                "processed" && (
-
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "15px"
-                                    }}
-                                >
-
-                                    <p>
-                                        Refund processed
-                                        successfully.
-                                    </p>
-
-                                    {order.razorpayRefundId && (
+                                    <div className="admin-return-message success">
 
                                         <p>
-                                            Razorpay Refund ID:{" "}
-                                            <strong>
-                                                {
-                                                    order.razorpayRefundId
-                                                }
-                                            </strong>
+                                            Refund processed
+                                            successfully.
                                         </p>
 
-                                    )}
+                                        {order.razorpayRefundId && (
+                                            <p>
+                                                Razorpay Refund ID:{" "}
+                                                <strong>
+                                                    {
+                                                        order.razorpayRefundId
+                                                    }
+                                                </strong>
+                                            </p>
+                                        )}
 
-                                </div>
+                                    </div>
+                                )}
 
-                            )}
+                                {/* RETURN COMPLETED */}
 
+                                {order.returnStatus ===
+                                    "received" && (
 
-                            {/* ==========================================
-                                RETURN COMPLETED
-                            ========================================== */}
-
-                            {order.returnStatus ===
-                                "received" && (
-
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "15px"
-                                    }}
-                                >
-
-                                    <p>
+                                    <div className="admin-return-message success">
                                         Return and refund
                                         process completed.
-                                    </p>
+                                    </div>
+                                )}
 
-                                </div>
+                                {/* RETURN REJECTED */}
 
-                            )}
+                                {order.returnStatus ===
+                                    "rejected" && (
 
-
-                            {/* ==========================================
-                                RETURN REJECTED
-                            ========================================== */}
-
-                            {order.returnStatus ===
-                                "rejected" && (
-                                <div
-                                    style={{
-                                        marginTop:
-                                            "15px"
-                                    }}
-                                >
-                                    <p>
+                                    <div className="admin-return-message danger">
                                         This return request
                                         was rejected.
-                                    </p>
-                                </div>
-                            )}
+                                    </div>
+                                )}
+
+                            </div>
+
                         </div>
+
                     ))}
+
                 </div>
+
             )}
+
         </div>
     );
 }
+
 export default AdminReturns;

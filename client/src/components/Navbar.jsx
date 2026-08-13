@@ -1,138 +1,199 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 function Navbar() {
-
     const navigate = useNavigate();
 
-    // Check whether the user is logged in
     const token = localStorage.getItem("token");
 
-    // Get logged-in user details
     const user = JSON.parse(
-        localStorage.getItem("user")
+        localStorage.getItem("user") || "null"
     );
 
+    const [search, setSearch] = useState("");
 
-    // Logout function
     const handleLogout = () => {
-
-        // Remove authentication data
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
-        // Redirect user to login page
-        navigate("/login");
-
+        navigate("/");
+        window.location.reload();
     };
 
+    const handleSearch = (e) => {
+        e.preventDefault();
+
+        if (!search.trim()) return;
+
+        navigate(
+            `/products?search=${encodeURIComponent(search.trim())}`
+        );
+    };
 
     return (
+        <header className="site-header">
 
-        <nav className="navbar">
+            {/* TOP NAVBAR */}
+            <div className="navbar">
 
-            {/* Logo */}
-
-            <div className="navbar-logo">
-
-                <Link to="/">
-                    PaisaVasool
-                </Link>
-
-            </div>
-
-
-            {/* Navigation links */}
-
-            <div className="navbar-links">
-
-                <Link to="/">
-                    Home
-                </Link>
+                {/* LOGO */}
+                <div className="navbar-logo">
+                    <Link to="/">
+                        <img
+                            src="/PaisaVasool.png"
+                            alt="PaisaVasool"
+                        />
+                    </Link>
+                </div>
 
 
-                <Link to="/products">
-                    Products
-                </Link>
+                {/* MAIN NAVIGATION */}
+                <nav className="navbar-menu">
 
+                    <Link to="/">
+                        Home
+                    </Link>
 
-                <Link to="/cart">
-                    Cart
-                </Link>
+                    <Link to="/products">
+                        Shop
+                    </Link>
 
+                    <Link to="/products">
+                        Products
+                    </Link>
 
-                {/* Show Orders, Profile and Price Alerts when logged in */}
-
-                {token && (
-                    <>
-
+                    {token && (
                         <Link to="/orders">
                             Orders
                         </Link>
+                    )}
 
-
-                        <Link to="/profile">
-                            Profile
-                        </Link>
-
-
+                    {token && (
                         <Link to="/price-alerts">
                             Price Alerts
                         </Link>
+                    )}
 
-                    </>
-                )}
-
-
-                {/* Show Admin only to administrators */}
-
-                {token && user?.role === "admin" && (
-
-                    <Link to="/admin">
-                        Admin
-                    </Link>
-
-                )}
+                </nav>
 
 
-                {/* Show Login/Register when logged out */}
+                {/* RIGHT SIDE */}
+                <div className="navbar-actions">
 
-                {!token && (
-
-                    <>
-
-                        <Link to="/login">
-                            Login
-                        </Link>
-
-
-                        <Link to="/register">
-                            Register
-                        </Link>
-
-                    </>
-
-                )}
-
-
-                {/* Show Logout when logged in */}
-
-                {token && (
-
-                    <button
-                        onClick={handleLogout}
+                    {/* SEARCH */}
+                    <form
+                        className="navbar-search"
+                        onSubmit={handleSearch}
                     >
-                        Logout
-                    </button>
+                        <input
+                            type="text"
+                            placeholder="Search products..."
+                            value={search}
+                            onChange={(e) =>
+                                setSearch(e.target.value)
+                            }
+                        />
 
-                )}
+                        <button type="submit">
+                            <span>⌕</span>
+                        </button>
+                    </form>
+
+
+                    {/* LOGGED IN */}
+                    {token ? (
+                        <>
+
+                            {/* CART */}
+                            <Link
+                                to="/cart"
+                                className="nav-icon"
+                                title="Cart"
+                            >
+                                🛒
+                            </Link>
+
+
+                            {/* PROFILE */}
+                            <Link
+                                to="/profile"
+                                className="nav-icon"
+                                title="Profile"
+                                aria-label="Profile"
+                            >
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                >
+                                    <circle
+                                        cx="12"
+                                        cy="8"
+                                        r="4"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                    />
+
+                                    <path
+                                        d="M4 21C4.8 16.8 7.4 14 12 14C16.6 14 19.2 16.8 20 21"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                            </Link>
+
+
+                            {/* ADMIN */}
+                            {user?.role === "admin" && (
+                                <Link
+                                    to="/admin"
+                                    className="nav-admin"
+                                >
+                                    Admin
+                                </Link>
+                            )}
+
+
+                            {/* LOGOUT */}
+                            <button
+                                className="nav-login-button"
+                                onClick={handleLogout}
+                            >
+                                Logout
+                            </button>
+
+                        </>
+                    ) : (
+
+                        /* LOGGED OUT */
+                        <>
+
+                            <Link
+                                to="/login"
+                                className="nav-login-button"
+                            >
+                                Login
+                            </Link>
+
+                            <Link
+                                to="/register"
+                                className="nav-register-button"
+                            >
+                                Register
+                            </Link>
+
+                        </>
+                    )}
+
+                </div>
 
             </div>
 
-        </nav>
-
+        </header>
     );
-
 }
-
 
 export default Navbar;

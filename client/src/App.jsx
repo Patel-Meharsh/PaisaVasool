@@ -23,6 +23,7 @@ import AdminCustomers from "./pages/AdminCustomers";
 
 import Profile from "./pages/Profile";
 import PriceAlerts from "./pages/PriceAlerts";
+import Recommendations from "./pages/Recommendations";
 
 function App() {
     return (
@@ -114,6 +115,10 @@ function App() {
                     element={<PriceAlerts />}
                 />
 
+                {/* Recommendations */}
+                {/* Recommendations are displayed on the Home page.
+                    No separate route is required. */}
+                
 
                 {/* ==================================================
                     ADMIN PAGES

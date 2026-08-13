@@ -15,8 +15,6 @@ function PriceAlerts() {
 
     const [error, setError] = useState("");
 
-    const [success, setSuccess] = useState("");
-
     const [deletingAlertId, setDeletingAlertId] =
         useState(null);
 
@@ -32,6 +30,7 @@ function PriceAlerts() {
             setLoading(true);
 
             setError("");
+
 
             const token =
                 localStorage.getItem("token");
@@ -134,7 +133,7 @@ function PriceAlerts() {
 
         const confirmed =
             window.confirm(
-                "Are you sure you want to remove this price alert?"
+                "Are you sure you want to delete this price alert?"
             );
 
 
@@ -151,16 +150,10 @@ function PriceAlerts() {
 
             setError("");
 
-            setSuccess("");
-
 
             const token =
                 localStorage.getItem("token");
 
-
-            // ----------------------------------------------------
-            // Check login
-            // ----------------------------------------------------
 
             if (!token) {
 
@@ -176,7 +169,9 @@ function PriceAlerts() {
             // ----------------------------------------------------
 
             const response = await fetch(
+
                 `http://localhost:5000/api/price-alerts/${alertId}`,
+
                 {
                     method: "DELETE",
 
@@ -185,16 +180,13 @@ function PriceAlerts() {
                             `Bearer ${token}`
                     }
                 }
+
             );
 
 
             const data =
                 await response.json();
 
-
-            // ----------------------------------------------------
-            // Handle API error
-            // ----------------------------------------------------
 
             if (!response.ok) {
 
@@ -212,15 +204,12 @@ function PriceAlerts() {
 
             setPriceAlerts(
                 (previousAlerts) =>
+
                     previousAlerts.filter(
                         (alert) =>
                             alert._id !== alertId
                     )
-            );
 
-
-            setSuccess(
-                "Price alert removed successfully."
             );
 
 
@@ -253,7 +242,7 @@ function PriceAlerts() {
 
         return (
 
-            <div>
+            <div className="price-alerts-page">
 
                 <h2>
                     Loading price alerts...
@@ -272,67 +261,55 @@ function PriceAlerts() {
 
     return (
 
-        <div>
+        <div className="price-alerts-page">
 
-            {/* ==================================================
+            {/* ====================================================
                 HEADER
-            ================================================== */}
+            ==================================================== */}
 
-            <Link to="/products">
-                ← Back to Products
-            </Link>
+            <div className="price-alerts-header">
 
+                <h1>
+                    Price Alerts
+                </h1>
 
-            <h1>
-                Price Alerts
-            </h1>
+                <p>
+                    Get notified when products reach your target price.
+                </p>
 
-
-            <p>
-                Get notified when a product reaches your target price.
-            </p>
+            </div>
 
 
-            {/* ==================================================
+            {/* ====================================================
                 ERROR
-            ================================================== */}
+            ==================================================== */}
 
             {error && (
 
-                <p>
+                <div className="price-alert-error">
+
                     {error}
-                </p>
+
+                </div>
 
             )}
 
 
-            {/* ==================================================
-                SUCCESS
-            ================================================== */}
-
-            {success && (
-
-                <p>
-                    {success}
-                </p>
-
-            )}
-
-
-            {/* ==================================================
+            {/* ====================================================
                 NO ALERTS
-            ================================================== */}
+            ==================================================== */}
 
             {priceAlerts.length === 0 ? (
 
-                <div>
+                <div className="no-price-alerts">
 
                     <h2>
-                        No price alerts found.
+                        No price alerts yet.
                     </h2>
 
                     <p>
-                        You haven't created any price alerts yet.
+                        Set a target price on a product and
+                        we will notify you when the price drops.
                     </p>
 
                     <Link to="/products">
@@ -343,195 +320,179 @@ function PriceAlerts() {
 
             ) : (
 
-                <div>
+                <div className="price-alert-list">
 
-                    {/* ==================================================
-                        ALERT COUNT
-                    ================================================== */}
+                    {priceAlerts.map((alert) => {
 
-                    <h2>
-                        My Price Alerts
-                    </h2>
+                        const product =
+                            alert.product;
 
 
-                    <p>
-                        {priceAlerts.length} active alert
-                        {priceAlerts.length !== 1 ? "s" : ""}
-                    </p>
+                        return (
 
-
-                    {/* ==================================================
-                        PRICE ALERTS
-                    ================================================== */}
-
-                    {priceAlerts.map((alert) => (
-
-                        <div
-                            key={alert._id}
-                        >
-
-                            <hr />
-
-
-                            {/* ==========================================
-                                PRODUCT INFORMATION
-                            ========================================== */}
-
-                            <h3>
-                                {alert.product?.name ||
-                                    "Product unavailable"}
-                            </h3>
-
-
-                            {/* ==========================================
-                                PRODUCT IMAGE
-                            ========================================== */}
-
-                            {alert.product?.images &&
-                                alert.product.images.length > 0 && (
-
-                                    <img
-                                        src={
-                                            alert.product.images[0]
-                                        }
-                                        alt={
-                                            alert.product.name
-                                        }
-                                        width="150"
-                                    />
-
-                                )}
-
-
-                            {/* ==========================================
-                                CURRENT PRICE
-                            ========================================== */}
-
-                            <p>
-
-                                Current Price:{" "}
-
-                                <strong>
-                                    ₹
-                                    {
-                                        alert.currentPrice ??
-                                        alert.product?.price ??
-                                        "N/A"
-                                    }
-                                </strong>
-
-                            </p>
-
-
-                            {/* ==========================================
-                                TARGET PRICE
-                            ========================================== */}
-
-                            <p>
-
-                                Target Price:{" "}
-
-                                <strong>
-                                    ₹{alert.targetPrice}
-                                </strong>
-
-                            </p>
-
-
-                            {/* ==========================================
-                                PRICE DIFFERENCE
-                            ========================================== */}
-
-                            {alert.currentPrice !== undefined && (
-
-                                <p>
-
-                                    You are waiting for the price
-                                    to drop by ₹
-                                    {
-                                        Math.max(
-                                            0,
-                                            alert.currentPrice -
-                                            alert.targetPrice
-                                        )
-                                    }
-
-                                </p>
-
-                            )}
-
-
-                            {/* ==========================================
-                                ALERT STATUS
-                            ========================================== */}
-
-                            <p>
-
-                                Status:{" "}
-
-                                <strong>
-
-                                    {alert.isNotified
-                                        ? "Price reached"
-                                        : "Waiting for target price"}
-
-                                </strong>
-
-                            </p>
-
-
-                            {/* ==========================================
-                                CREATED DATE
-                            ========================================== */}
-
-                            <p>
-
-                                Alert Created:{" "}
-
-                                {alert.createdAt
-                                    ? new Date(
-                                        alert.createdAt
-                                    ).toLocaleString()
-                                    : "Unknown"}
-
-                            </p>
-
-
-                            {/* ==========================================
-                                DELETE BUTTON
-                            ========================================== */}
-
-                            <button
-
-                                type="button"
-
-                                onClick={() =>
-                                    handleDeleteAlert(
-                                        alert._id
-                                    )
-                                }
-
-                                disabled={
-                                    deletingAlertId ===
-                                    alert._id
-                                }
-
+                            <div
+                                className="price-alert-card"
+                                key={alert._id}
                             >
 
-                                {deletingAlertId ===
-                                alert._id
+                                {/* ==================================================
+                                    PRODUCT INFORMATION
+                                ================================================== */}
 
-                                    ? "Removing..."
+                                <div className="price-alert-product">
 
-                                    : "Remove Alert"
+                                    {/* Product image */}
 
-                                }
+                                    {product?.images?.length > 0 && (
 
-                            </button>
+                                        <img
+                                            src={
+                                                product.images[0]
+                                            }
+                                            alt={
+                                                product.name
+                                            }
+                                        />
 
-                        </div>
+                                    )}
 
-                    ))}
+
+                                    <div>
+
+                                        <h2>
+                                            {product?.name ||
+                                                "Product unavailable"}
+                                        </h2>
+
+
+                                        {/* Current price */}
+
+                                        <p>
+                                            Current Price:{" "}
+
+                                            <strong>
+                                                ₹{product?.price}
+                                            </strong>
+                                        </p>
+
+
+                                        {/* Target price */}
+
+                                        <p>
+                                            Target Price:{" "}
+
+                                            <strong>
+                                                ₹{alert.targetPrice}
+                                            </strong>
+                                        </p>
+
+
+                                        {/* Price when alert was created */}
+
+                                        <p>
+                                            Price when alert
+                                            was created:{" "}
+
+                                            ₹{alert.currentPrice}
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+
+                                {/* ==================================================
+                                    ALERT STATUS
+                                ================================================== */}
+
+                                <div className="price-alert-status">
+
+                                    {alert.isNotified ? (
+
+                                        <p>
+                                            <strong>
+                                                Price Alert Triggered
+                                            </strong>
+                                        </p>
+
+                                    ) : (
+
+                                        <p>
+                                            <strong>
+                                                Waiting for target price
+                                            </strong>
+                                        </p>
+
+                                    )}
+
+
+                                    {alert.notifiedAt && (
+
+                                        <p>
+
+                                            Notified On:{" "}
+
+                                            {new Date(
+                                                alert.notifiedAt
+                                            ).toLocaleString()}
+
+                                        </p>
+
+                                    )}
+
+                                </div>
+
+
+                                {/* ==================================================
+                                    ACTIONS
+                                ================================================== */}
+
+                                <div className="price-alert-actions">
+
+                                    {product?._id && (
+
+                                        <Link
+                                            to={`/products/${product._id}`}
+                                        >
+                                            View Product
+                                        </Link>
+
+                                    )}
+
+
+                                    <button
+
+                                        type="button"
+
+                                        onClick={() =>
+                                            handleDeleteAlert(
+                                                alert._id
+                                            )
+                                        }
+
+                                        disabled={
+                                            deletingAlertId ===
+                                            alert._id
+                                        }
+
+                                    >
+
+                                        {deletingAlertId ===
+                                        alert._id
+
+                                            ? "Deleting..."
+
+                                            : "Delete Alert"}
+
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        );
+
+                    })}
 
                 </div>
 
