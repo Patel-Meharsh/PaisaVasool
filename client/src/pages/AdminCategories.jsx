@@ -594,7 +594,10 @@ function AdminCategories() {
 
                 <div>
 
-                    <Link to="/admin">
+                    <Link
+                        to="/admin"
+                        className="admin-back-link"
+                    >
                         ← Back to Dashboard
                     </Link>
 

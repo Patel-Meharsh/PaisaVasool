@@ -300,7 +300,7 @@ function AdminReturns() {
                         to="/admin"
                         className="admin-back-link"
                     >
-                        ← Back to Admin Dashboard
+                        ← Back to Dashboard
                     </Link>
 
                     <h1>
