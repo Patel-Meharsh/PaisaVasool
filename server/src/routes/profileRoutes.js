@@ -1,6 +1,11 @@
-const express = require("express");
+const express =
+    require("express");
 
-const router = express.Router();
+const multer =
+    require("multer");
+
+const router =
+    express.Router();
 
 
 // ============================================================
@@ -19,9 +24,76 @@ const {
 
     getProfile,
 
-    updateProfile
+    updateProfile,
 
-} = require("../controllers/profileController");
+    changePassword,
+
+    uploadProfilePicture,
+
+    removeProfilePicture
+
+} =
+    require("../controllers/profileController");
+
+
+// ============================================================
+// MULTER CONFIGURATION
+// ============================================================
+
+const storage =
+    multer.memoryStorage();
+
+
+const upload =
+    multer({
+
+        storage,
+
+        limits: {
+
+            fileSize:
+                5 * 1024 * 1024
+
+        },
+
+        fileFilter:
+            (req, file, callback) => {
+
+                const allowedTypes = [
+
+                    "image/jpeg",
+
+                    "image/png",
+
+                    "image/webp"
+
+                ];
+
+
+                if (
+                    allowedTypes.includes(
+                        file.mimetype
+                    )
+                ) {
+
+                    callback(
+                        null,
+                        true
+                    );
+
+                } else {
+
+                    callback(
+                        new Error(
+                            "Only JPG, PNG and WEBP images are allowed"
+                        )
+                    );
+
+                }
+
+            }
+
+    });
 
 
 // ============================================================
@@ -29,21 +101,15 @@ const {
 // ============================================================
 
 // GET /api/profile
-//
-// Request flow:
-//
-// GET /api/profile
-//        ↓
-// protect
-//        ↓
-// JWT valid?
-//        ↓
-// getProfile
 
 router.get(
+
     "/profile",
+
     protect,
+
     getProfile
+
 );
 
 
@@ -52,21 +118,89 @@ router.get(
 // ============================================================
 
 // PUT /api/profile
-//
-// Request flow:
-//
-// PUT /api/profile
-//        ↓
-// protect
-//        ↓
-// JWT valid?
-//        ↓
-// updateProfile
 
 router.put(
+
     "/profile",
+
     protect,
+
     updateProfile
+
+);
+
+
+// ============================================================
+// CHANGE PASSWORD
+// ============================================================
+
+// PUT /api/profile/password
+
+router.put(
+
+    "/profile/password",
+
+    protect,
+
+    changePassword
+
+);
+
+
+// ============================================================
+// UPLOAD PROFILE PICTURE
+// ============================================================
+
+// POST /api/profile/picture
+
+router.post(
+
+    "/profile/picture",
+
+    protect,
+
+    (req, res, next) => {
+
+        upload.single(
+            "profilePicture"
+        )(req, res, (error) => {
+
+            if (error) {
+
+                return res.status(400).json({
+
+                    message:
+                        error.message
+
+                });
+
+            }
+
+            next();
+
+        });
+
+    },
+
+    uploadProfilePicture
+
+);
+
+
+// ============================================================
+// REMOVE PROFILE PICTURE
+// ============================================================
+
+// DELETE /api/profile/picture
+
+router.delete(
+
+    "/profile/picture",
+
+    protect,
+
+    removeProfilePicture
+
 );
 
 
@@ -74,4 +208,5 @@ router.put(
 // EXPORT ROUTER
 // ============================================================
 
-module.exports = router;
+module.exports =
+    router;

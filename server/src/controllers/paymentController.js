@@ -2,11 +2,27 @@
 // PAYMENT CONTROLLER
 // ============================================================
 
-// Import Razorpay instance
 const razorpay = require("../utils/razorpay");
 
-// Import Order model
 const Order = require("../models/Order");
+
+const Cart = require("../models/Cart");
+
+const Product = require("../models/Product");
+
+
+// Razorpay verification helper
+
+const {
+    validatePaymentVerification
+} = require("razorpay/dist/utils/razorpay-utils");
+
+
+// Email functions
+
+const {
+    sendOrderPlacedEmail
+} = require("../utils/sendEmail");
 
 
 // ============================================================
@@ -14,82 +30,135 @@ const Order = require("../models/Order");
 // ============================================================
 
 const createRazorpayOrder = async (req, res) => {
+
     try {
 
-        // ----------------------------------------------------
-        // Get PaisaVasool order ID
-        // ----------------------------------------------------
+        const {
+            orderId
+        } = req.body;
 
-        const { orderId } = req.body;
-
-
-        // ----------------------------------------------------
-        // Validate order ID
-        // ----------------------------------------------------
 
         if (!orderId) {
+
             return res.status(400).json({
-                message: "Order ID is required"
+
+                message:
+                    "Order ID is required"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Find the user's order
+        // Find user's PaisaVasool order
         // ----------------------------------------------------
 
-        const order = await Order.findOne({
-            _id: orderId,
-            user: req.user._id
-        });
+        const order =
+            await Order.findOne({
+
+                _id: orderId,
+
+                user: req.user._id
+
+            });
 
 
         if (!order) {
+
             return res.status(404).json({
-                message: "Order not found"
+
+                message:
+                    "Order not found"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Make sure this order uses online payment
+        // Make sure it is an online order
         // ----------------------------------------------------
 
-        if (order.paymentMethod !== "online") {
+        if (
+            order.paymentMethod !== "online"
+        ) {
+
             return res.status(400).json({
+
                 message:
                     "This order is not configured for online payment"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Prevent creating another Razorpay order
+        // Already paid?
+        // ----------------------------------------------------
+
+        if (
+            order.paymentStatus === "paid"
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "This order has already been paid"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // Existing Razorpay order
+        // ----------------------------------------------------
+        //
+        // This allows the user to retry payment if
+        // the previous Razorpay window was closed.
         // ----------------------------------------------------
 
         if (order.razorpayOrderId) {
-            return res.status(400).json({
-                message:
-                    "Razorpay order already exists for this order",
-                razorpayOrderId:
+
+            const existingRazorpayOrder =
+                await razorpay.orders.fetch(
                     order.razorpayOrderId
+                );
+
+
+            return res.status(200).json({
+
+                message:
+                    "Existing Razorpay order found",
+
+                razorpayOrder: {
+
+                    id:
+                        existingRazorpayOrder.id,
+
+                    amount:
+                        existingRazorpayOrder.amount,
+
+                    currency:
+                        existingRazorpayOrder.currency
+
+                }
+
             });
+
         }
 
 
         // ----------------------------------------------------
         // Convert amount to paise
         // ----------------------------------------------------
-        // PaisaVasool stores amount in rupees.
-        //
-        // Razorpay expects amount in the smallest currency unit.
-        //
-        // Example:
-        // ₹2499 → 249900 paise
-        // ----------------------------------------------------
 
         const amountInPaise =
-            Math.round(order.totalAmount * 100);
+            Math.round(
+                order.totalAmount * 100
+            );
 
 
         // ----------------------------------------------------
@@ -99,20 +168,25 @@ const createRazorpayOrder = async (req, res) => {
         const razorpayOrder =
             await razorpay.orders.create({
 
-                amount: amountInPaise,
+                amount:
+                    amountInPaise,
 
-                currency: "INR",
+                currency:
+                    "INR",
 
                 receipt:
                     `PV_${order._id}`,
 
                 notes: {
+
                     paisaVasoolOrderId:
                         order._id.toString(),
 
                     userId:
                         req.user._id.toString()
+
                 }
+
             });
 
 
@@ -130,40 +204,48 @@ const createRazorpayOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Send Razorpay order information
-        // to frontend
+        // Response
         // ----------------------------------------------------
 
-        res.status(201).json({
+        return res.status(201).json({
 
             message:
                 "Razorpay order created successfully",
 
             razorpayOrder: {
-                id: razorpayOrder.id,
+
+                id:
+                    razorpayOrder.id,
 
                 amount:
                     razorpayOrder.amount,
 
                 currency:
                     razorpayOrder.currency
+
             }
 
         });
+
 
     } catch (error) {
 
         console.error(
             "Create Razorpay order error:",
-            error.message
+            error
         );
 
-        res.status(500).json({
-            message: "Server error"
-        });
-    }
-};
 
+        return res.status(500).json({
+
+            message:
+                "Failed to create payment order"
+
+        });
+
+    }
+
+};
 
 
 // ============================================================
@@ -171,22 +253,24 @@ const createRazorpayOrder = async (req, res) => {
 // ============================================================
 
 const verifyRazorpayPayment = async (req, res) => {
+
     try {
 
-        // ----------------------------------------------------
-        // Get payment information from frontend
-        // ----------------------------------------------------
-
         const {
+
             orderId,
+
             razorpayOrderId,
+
             razorpayPaymentId,
+
             razorpaySignature
+
         } = req.body;
 
 
         // ----------------------------------------------------
-        // Validate required fields
+        // Validate request
         // ----------------------------------------------------
 
         if (
@@ -195,100 +279,278 @@ const verifyRazorpayPayment = async (req, res) => {
             !razorpayPaymentId ||
             !razorpaySignature
         ) {
+
             return res.status(400).json({
+
                 message:
                     "Payment verification data is incomplete"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Find user's order
+        // Find PaisaVasool order
         // ----------------------------------------------------
 
-        const order = await Order.findOne({
-            _id: orderId,
-            user: req.user._id
-        });
+        const order =
+            await Order.findOne({
+
+                _id: orderId,
+
+                user: req.user._id
+
+            });
 
 
         if (!order) {
+
             return res.status(404).json({
-                message: "Order not found"
+
+                message:
+                    "Order not found"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Make sure Razorpay order matches
-        // our PaisaVasool order
+        // Make sure Razorpay order matches OUR database
         // ----------------------------------------------------
 
         if (
             order.razorpayOrderId !==
             razorpayOrderId
         ) {
+
             return res.status(400).json({
+
                 message:
                     "Razorpay order does not match"
+
             });
+
         }
 
 
         // ----------------------------------------------------
-        // Create signature
-        // ----------------------------------------------------
-        //
-        // Razorpay signature verification uses:
-        //
-        // HMAC SHA256
-        //
-        // Data:
-        //
-        // razorpayOrderId + "|" + razorpayPaymentId
-        //
-        // Secret:
-        //
-        // RAZORPAY_KEY_SECRET
-        // ----------------------------------------------------
-
-        const crypto = require("crypto");
-
-        const generatedSignature =
-            crypto
-                .createHmac(
-                    "sha256",
-                    process.env.RAZORPAY_KEY_SECRET
-                )
-                .update(
-                    `${razorpayOrderId}|${razorpayPaymentId}`
-                )
-                .digest("hex");
-
-
-        // ----------------------------------------------------
-        // Compare signatures
+        // Prevent duplicate verification
         // ----------------------------------------------------
 
         if (
-            generatedSignature !==
-            razorpaySignature
+            order.paymentStatus === "paid"
         ) {
+
+            return res.status(200).json({
+
+                message:
+                    "Payment already verified",
+
+                payment: {
+
+                    orderId:
+                        order._id,
+
+                    paymentStatus:
+                        order.paymentStatus
+
+                }
+
+            });
+
+        }
+
+
+        // ====================================================
+        // VERIFY RAZORPAY SIGNATURE
+        // ====================================================
+
+        const isSignatureValid =
+            validatePaymentVerification(
+
+                {
+                    order_id:
+                        order.razorpayOrderId,
+
+                    payment_id:
+                        razorpayPaymentId
+
+                },
+
+                razorpaySignature,
+
+                process.env.RAZORPAY_KEY_SECRET
+
+            );
+
+
+        if (!isSignatureValid) {
 
             order.paymentStatus =
                 "failed";
 
             await order.save();
 
+
             return res.status(400).json({
+
                 message:
                     "Payment verification failed"
+
             });
+
+        }
+
+
+        // ====================================================
+        // SIGNATURE VALID
+        // ====================================================
+        //
+        // The payment is now authenticated.
+        //
+        // Only NOW do we finalize the order.
+        // ====================================================
+
+
+        // ----------------------------------------------------
+        // Find user's cart
+        // ----------------------------------------------------
+
+        const cart =
+            await Cart.findOne({
+
+                user:
+                    req.user._id
+
+            });
+
+
+        if (
+            !cart ||
+            cart.items.length === 0
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "Cart is empty. Payment was verified but the order could not be finalized."
+
+            });
+
         }
 
 
         // ----------------------------------------------------
-        // Payment verified successfully
+        // Reduce stock
+        // ----------------------------------------------------
+
+        const updatedProducts = [];
+
+
+        for (const item of order.items) {
+
+            const updatedProduct =
+                await Product.findOneAndUpdate(
+
+                    {
+
+                        _id:
+                            item.product,
+
+                        isActive:
+                            true,
+
+                        stock: {
+                            $gte:
+                                item.quantity
+                        }
+
+                    },
+
+                    {
+
+                        $inc: {
+                            stock:
+                                -item.quantity
+                        }
+
+                    },
+
+                    {
+
+                        new:
+                            true
+
+                    }
+
+                );
+
+
+            if (!updatedProduct) {
+
+                // Restore already reduced products
+
+                for (
+                    const updatedItem
+                    of updatedProducts
+                ) {
+
+                    await Product.findByIdAndUpdate(
+
+                        updatedItem.productId,
+
+                        {
+
+                            $inc: {
+
+                                stock:
+                                    updatedItem.quantity
+
+                            }
+
+                        }
+
+                    );
+
+                }
+
+
+                return res.status(400).json({
+
+                    message:
+                        `Insufficient stock for ${item.name}. Payment was verified, but the order could not be fulfilled.`
+
+                });
+
+            }
+
+
+            updatedProducts.push({
+
+                productId:
+                    item.product,
+
+                quantity:
+                    item.quantity
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // Clear cart
+        // ----------------------------------------------------
+
+        cart.items = [];
+
+        await cart.save();
+
+
+        // ----------------------------------------------------
+        // Save payment information
         // ----------------------------------------------------
 
         order.razorpayPaymentId =
@@ -308,15 +570,45 @@ const verifyRazorpayPayment = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Send successful response
+        // Send order confirmation email
         // ----------------------------------------------------
 
-        res.status(200).json({
+        try {
+
+            await sendOrderPlacedEmail(
+
+                req.user.email,
+
+                req.user.name,
+
+                order
+
+            );
+
+        } catch (emailError) {
+
+            console.error(
+
+                "Order email error:",
+
+                emailError.message
+
+            );
+
+        }
+
+
+        // ----------------------------------------------------
+        // Success response
+        // ----------------------------------------------------
+
+        return res.status(200).json({
 
             message:
-                "Payment verified successfully",
+                "Payment verified and order confirmed successfully",
 
             payment: {
+
                 orderId:
                     order._id,
 
@@ -328,30 +620,40 @@ const verifyRazorpayPayment = async (req, res) => {
 
                 paymentStatus:
                     order.paymentStatus
+
             }
 
         });
+
 
     } catch (error) {
 
         console.error(
             "Payment verification error:",
-            error.message
+            error
         );
 
-        res.status(500).json({
-            message: "Server error"
+
+        return res.status(500).json({
+
+            message:
+                "Payment verification failed due to a server error"
+
         });
+
     }
+
 };
 
 
-
 // ============================================================
-// EXPORT CONTROLLER FUNCTIONS
+// EXPORT
 // ============================================================
 
 module.exports = {
+
     createRazorpayOrder,
+
     verifyRazorpayPayment
+
 };

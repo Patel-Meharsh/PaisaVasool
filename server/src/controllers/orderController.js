@@ -63,9 +63,7 @@ const createOrder = async (req, res) => {
 
         const cart = await Cart.findOne({
             user: req.user._id
-        }).populate(
-            "items.product"
-        );
+        }).populate("items.product");
 
 
         if (!cart || cart.items.length === 0) {
@@ -91,7 +89,6 @@ const createOrder = async (req, res) => {
             const product = item.product;
 
 
-            // Product may have been deleted/deactivated
             if (!product || !product.isActive) {
 
                 return res.status(400).json({
@@ -102,7 +99,6 @@ const createOrder = async (req, res) => {
             }
 
 
-            // Check stock
             if (product.stock < item.quantity) {
 
                 return res.status(400).json({
@@ -113,12 +109,10 @@ const createOrder = async (req, res) => {
             }
 
 
-            // Calculate item total
             totalAmount +=
                 product.price * item.quantity;
 
 
-            // Save product information at purchase time
             orderItems.push({
 
                 product: product._id,
@@ -135,7 +129,7 @@ const createOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 4. Create order
+        // 4. Create PaisaVasool order
         // ----------------------------------------------------
 
         const order = await Order.create({
@@ -160,141 +154,157 @@ const createOrder = async (req, res) => {
         });
 
 
-        // ----------------------------------------------------
-        // 5. Reduce product stock safely
-        // ----------------------------------------------------
+        // ====================================================
+        // 5. CASH ON DELIVERY
+        // ====================================================
 
-        const updatedProducts = [];
+        if (paymentMethod === "cod") {
 
-
-        for (const item of cart.items) {
-
-            const updatedProduct =
-                await Product.findOneAndUpdate(
-
-                    {
-                        _id: item.product._id,
-
-                        isActive: true,
-
-                        stock: {
-                            $gte: item.quantity
-                        }
-                    },
-
-                    {
-                        $inc: {
-                            stock: -item.quantity
-                        }
-                    },
-
-                    {
-                        new: true
-                    }
-
-                );
+            const updatedProducts = [];
 
 
-            // ------------------------------------------------
-            // Stock changed between validation and update
-            // ------------------------------------------------
+            for (const item of cart.items) {
 
-            if (!updatedProduct) {
+                const updatedProduct =
+                    await Product.findOneAndUpdate(
 
-                // Restore stock for products that were
-                // already updated during this order.
+                        {
+                            _id: item.product._id,
 
-                for (const updatedItem of updatedProducts) {
+                            isActive: true,
 
-                    await Product.findByIdAndUpdate(
-
-                        updatedItem.productId,
+                            stock: {
+                                $gte: item.quantity
+                            }
+                        },
 
                         {
                             $inc: {
-                                stock: updatedItem.quantity
+                                stock: -item.quantity
                             }
+                        },
+
+                        {
+                            new: true
                         }
 
                     );
 
+
+                if (!updatedProduct) {
+
+                    // Restore already updated products
+
+                    for (const updatedItem of updatedProducts) {
+
+                        await Product.findByIdAndUpdate(
+
+                            updatedItem.productId,
+
+                            {
+                                $inc: {
+                                    stock:
+                                        updatedItem.quantity
+                                }
+                            }
+
+                        );
+
+                    }
+
+
+                    await Order.findByIdAndDelete(
+                        order._id
+                    );
+
+
+                    return res.status(400).json({
+
+                        message:
+                            "Stock changed while processing your order. Please review your cart and try again."
+
+                    });
+
                 }
 
 
-                // Delete the order because stock deduction
-                // could not be completed.
+                updatedProducts.push({
 
-                await Order.findByIdAndDelete(
-                    order._id
-                );
+                    productId:
+                        item.product._id,
 
-
-                return res.status(400).json({
-
-                    message:
-                        "Stock changed while processing your order. Please review your cart and try again."
+                    quantity:
+                        item.quantity
 
                 });
 
             }
 
 
-            updatedProducts.push({
+            // ------------------------------------------------
+            // Clear cart ONLY after COD order is finalized
+            // ------------------------------------------------
 
-                productId:
-                    item.product._id,
+            cart.items = [];
 
-                quantity:
-                    item.quantity
+            await cart.save();
+
+
+            // ------------------------------------------------
+            // Send COD order email
+            // ------------------------------------------------
+
+            try {
+
+                await sendOrderPlacedEmail(
+
+                    req.user.email,
+
+                    req.user.name,
+
+                    order
+
+                );
+
+            } catch (emailError) {
+
+                console.error(
+                    "Order email error:",
+                    emailError.message
+                );
+
+            }
+
+
+            return res.status(201).json({
+
+                message:
+                    "Order placed successfully",
+
+                order
 
             });
 
         }
 
 
-        // ----------------------------------------------------
-        // 6. Clear user's cart
-        // ----------------------------------------------------
+        // ====================================================
+        // 6. ONLINE PAYMENT
+        // ====================================================
+        //
+        // IMPORTANT:
+        //
+        // DO NOT reduce stock.
+        // DO NOT clear cart.
+        // DO NOT send order email.
+        //
+        // These happen only after Razorpay verification.
+        // ====================================================
 
-        cart.items = [];
-
-        await cart.save();
-
-
-        // ----------------------------------------------------
-        // 7. Send order placed email
-        // ----------------------------------------------------
-
-        try {
-
-            await sendOrderPlacedEmail(
-
-                req.user.email,
-
-                req.user.name,
-
-                order
-
-            );
-
-        } catch (emailError) {
-
-            console.error(
-                "Order email error:",
-                emailError.message
-            );
-
-        }
-
-
-        // ----------------------------------------------------
-        // 8. Send response
-        // ----------------------------------------------------
-
-        res.status(201).json({
+        return res.status(201).json({
 
             message:
-                "Order placed successfully",
+                "Order created. Payment required.",
 
             order
 
@@ -305,7 +315,7 @@ const createOrder = async (req, res) => {
 
         console.error(
             "Create order error:",
-            error.message
+            error
         );
 
 

@@ -5,17 +5,29 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 
-// Create the User schema
+// ============================================================
+// USER SCHEMA
+// ============================================================
+
 const userSchema = new mongoose.Schema(
+
     {
+
+        // ----------------------------------------------------
         // User's full name
+        // ----------------------------------------------------
+
         name: {
             type: String,
             required: true,
             trim: true
         },
 
+
+        // ----------------------------------------------------
         // User's email address
+        // ----------------------------------------------------
+
         email: {
             type: String,
             required: true,
@@ -24,68 +36,149 @@ const userSchema = new mongoose.Schema(
             trim: true
         },
 
+
+        // ----------------------------------------------------
         // User's password
+        // ----------------------------------------------------
+
         password: {
             type: String,
             required: true,
             minlength: 6
         },
 
+
+        // ----------------------------------------------------
         // User's role
-        // Normal users will be "customer"
-        // Admin users will be "admin"
+        // ----------------------------------------------------
+
         role: {
             type: String,
-            enum: ["customer", "admin"],
+            enum: [
+                "customer",
+                "admin"
+            ],
             default: "customer"
         },
 
-        // Indicates whether the user's email has been verified
+
+        // ----------------------------------------------------
+        // Email verification status
+        // ----------------------------------------------------
+
         isEmailVerified: {
             type: Boolean,
             default: false
         },
 
-        // Indicates whether the customer account is active
+
+        // ----------------------------------------------------
+        // Account active status
+        // ----------------------------------------------------
+
         isActive: {
             type: Boolean,
             default: true
         }
+
     },
 
-    // Automatically adds createdAt and updatedAt
     {
+
         timestamps: true
+
+    }
+
+);
+
+
+// ============================================================
+// PASSWORD HASHING
+// ============================================================
+
+userSchema.pre(
+    "save",
+    async function() {
+
+        // ----------------------------------------------------
+        // If this password was already hashed before the User
+        // document was created, don't hash it again.
+        //
+        // This is used only when converting a verified
+        // PendingRegistration into a real User.
+        // ----------------------------------------------------
+
+        if (
+            this.$locals &&
+            this.$locals.passwordAlreadyHashed
+        ) {
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // If password hasn't changed, don't hash again.
+        // ----------------------------------------------------
+
+        if (!this.isModified("password")) {
+
+            return;
+
+        }
+
+
+        // ----------------------------------------------------
+        // Generate salt
+        // ----------------------------------------------------
+
+        const salt =
+            await bcrypt.genSalt(10);
+
+
+        // ----------------------------------------------------
+        // Hash password
+        // ----------------------------------------------------
+
+        this.password =
+            await bcrypt.hash(
+                this.password,
+                salt
+            );
+
     }
 );
 
 
-// Hash the password before saving the user
-userSchema.pre("save", async function() {
+// ============================================================
+// COMPARE PASSWORD
+// ============================================================
 
-    // If password hasn't been changed, don't hash it again
-    if (!this.isModified("password")) {
-        return;
-    }
+userSchema.methods.comparePassword =
+    async function(enteredPassword) {
 
-    // Generate a salt
-    const salt = await bcrypt.genSalt(10);
+        return await bcrypt.compare(
+            enteredPassword,
+            this.password
+        );
 
-    // Hash the password
-    this.password = await bcrypt.hash(this.password, salt);
-
-});
+    };
 
 
-// Compare a entered password with the stored hashed password
-userSchema.methods.comparePassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
-};
+// ============================================================
+// CREATE USER MODEL
+// ============================================================
+
+const User =
+    mongoose.model(
+        "User",
+        userSchema
+    );
 
 
-// Create the User model
-const User = mongoose.model("User", userSchema);
+// ============================================================
+// EXPORT
+// ============================================================
 
-
-// Export the User model
 module.exports = User;

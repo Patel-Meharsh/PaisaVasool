@@ -1,45 +1,74 @@
 // ============================================================
-// USER MODEL
+// IMPORT USER MODEL
 // ============================================================
 
-const User = require("../models/User");
+const User =
+    require("../models/User");
+
+
+// ============================================================
+// IMPORT CLOUDINARY
+// ============================================================
+
+const cloudinary =
+    require("../config/cloudinary");
+
+
+// ============================================================
+// HELPER - FORMAT USER RESPONSE
+// ============================================================
+
+const formatUser = (user) => {
+
+    return {
+
+        _id:
+            user._id,
+
+        name:
+            user.name,
+
+        email:
+            user.email,
+
+        phone:
+            user.phone || "",
+
+        profilePicture:
+            user.profilePicture || {
+                url: "",
+                publicId: ""
+            },
+
+        role:
+            user.role,
+
+        isEmailVerified:
+            user.isEmailVerified,
+
+        isActive:
+            user.isActive
+
+    };
+
+};
 
 
 // ============================================================
 // GET USER PROFILE
 // ============================================================
 
-// Get the currently authenticated user's profile
-
 const getProfile = async (req, res) => {
 
     try {
 
-        // req.user is populated by authMiddleware.
-
         res.status(200).json({
 
             message:
-                "Protected profile accessed successfully",
+                "Profile fetched successfully",
 
-            user: {
-
-                _id:
-                    req.user._id,
-
-                name:
-                    req.user.name,
-
-                email:
-                    req.user.email,
-
-                role:
-                    req.user.role,
-
-                isEmailVerified:
-                    req.user.isEmailVerified
-
-            }
+            user:
+                formatUser(req.user)
 
         });
 
@@ -66,19 +95,21 @@ const getProfile = async (req, res) => {
 // UPDATE USER PROFILE
 // ============================================================
 
-// Update the currently authenticated user's profile
-
 const updateProfile = async (req, res) => {
 
     try {
 
         const {
-            name
+
+            name,
+
+            phone
+
         } = req.body;
 
 
         // ----------------------------------------------------
-        // Validate name
+        // VALIDATE NAME
         // ----------------------------------------------------
 
         if (!name || !name.trim()) {
@@ -94,7 +125,31 @@ const updateProfile = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Update user
+        // VALIDATE PHONE
+        // ----------------------------------------------------
+
+        if (phone && phone.trim()) {
+
+            const phoneRegex =
+                /^(?:\+91[\s-]?)?[6-9]\d{9}$/;
+
+
+            if (!phoneRegex.test(phone.trim())) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Please enter a valid Indian phone number"
+
+                });
+
+            }
+
+        }
+
+
+        // ----------------------------------------------------
+        // UPDATE USER
         // ----------------------------------------------------
 
         const updatedUser =
@@ -103,11 +158,19 @@ const updateProfile = async (req, res) => {
                 req.user._id,
 
                 {
+
                     name:
-                        name.trim()
+                        name.trim(),
+
+                    phone:
+                        phone
+                            ? phone.trim()
+                            : ""
+
                 },
 
                 {
+
                     new: true,
 
                     runValidators: true
@@ -118,7 +181,7 @@ const updateProfile = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // User not found
+        // USER NOT FOUND
         // ----------------------------------------------------
 
         if (!updatedUser) {
@@ -134,7 +197,7 @@ const updateProfile = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // Send updated user
+        // RESPONSE
         // ----------------------------------------------------
 
         res.status(200).json({
@@ -142,24 +205,8 @@ const updateProfile = async (req, res) => {
             message:
                 "Profile updated successfully",
 
-            user: {
-
-                _id:
-                    updatedUser._id,
-
-                name:
-                    updatedUser.name,
-
-                email:
-                    updatedUser.email,
-
-                role:
-                    updatedUser.role,
-
-                isEmailVerified:
-                    updatedUser.isEmailVerified
-
-            }
+            user:
+                formatUser(updatedUser)
 
         });
 
@@ -169,7 +216,6 @@ const updateProfile = async (req, res) => {
             "Update profile error:",
             error.message
         );
-
 
         res.status(500).json({
 
@@ -184,6 +230,465 @@ const updateProfile = async (req, res) => {
 
 
 // ============================================================
+// CHANGE PASSWORD
+// ============================================================
+
+const changePassword = async (req, res) => {
+
+    try {
+
+        const {
+
+            currentPassword,
+
+            newPassword,
+
+            confirmPassword
+
+        } = req.body;
+
+
+        // ----------------------------------------------------
+        // VALIDATE FIELDS
+        // ----------------------------------------------------
+
+        if (
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "All password fields are required"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // CHECK NEW PASSWORD LENGTH
+        // ----------------------------------------------------
+
+        if (newPassword.length < 6) {
+
+            return res.status(400).json({
+
+                message:
+                    "New password must be at least 6 characters"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // CHECK PASSWORD CONFIRMATION
+        // ----------------------------------------------------
+
+        if (
+            newPassword !==
+            confirmPassword
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "New passwords do not match"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // GET USER WITH PASSWORD
+        // ----------------------------------------------------
+
+        const user =
+            await User.findById(
+                req.user._id
+            );
+
+
+        if (!user) {
+
+            return res.status(404).json({
+
+                message:
+                    "User not found"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // CHECK CURRENT PASSWORD
+        // ----------------------------------------------------
+
+        const passwordMatches =
+            await user.comparePassword(
+                currentPassword
+            );
+
+
+        if (!passwordMatches) {
+
+            return res.status(400).json({
+
+                message:
+                    "Current password is incorrect"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // PREVENT SAME PASSWORD
+        // ----------------------------------------------------
+
+        const samePassword =
+            await user.comparePassword(
+                newPassword
+            );
+
+
+        if (samePassword) {
+
+            return res.status(400).json({
+
+                message:
+                    "New password must be different from current password"
+
+            });
+
+        }
+
+
+        // ----------------------------------------------------
+        // UPDATE PASSWORD
+        // ----------------------------------------------------
+
+        user.password =
+            newPassword;
+
+
+        await user.save();
+
+
+        // ----------------------------------------------------
+        // RESPONSE
+        // ----------------------------------------------------
+
+        res.status(200).json({
+
+            message:
+                "Password changed successfully"
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Change password error:",
+            error.message
+        );
+
+        res.status(500).json({
+
+            message:
+                "Server error"
+
+        });
+
+    }
+
+};
+
+
+// ============================================================
+// UPLOAD PROFILE PICTURE
+// ============================================================
+
+const uploadProfilePicture =
+    async (req, res) => {
+
+        try {
+
+            // ------------------------------------------------
+            // CHECK FILE
+            // ------------------------------------------------
+
+            if (!req.file) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Please select an image"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // GET CURRENT USER
+            // ------------------------------------------------
+
+            const user =
+                await User.findById(
+                    req.user._id
+                );
+
+
+            if (!user) {
+
+                return res.status(404).json({
+
+                    message:
+                        "User not found"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // DELETE OLD IMAGE
+            // ------------------------------------------------
+
+            if (
+                user.profilePicture &&
+                user.profilePicture.publicId
+            ) {
+
+                try {
+
+                    await cloudinary.uploader.destroy(
+
+                        user.profilePicture.publicId
+
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Old profile picture delete error:",
+                        error.message
+                    );
+
+                }
+
+            }
+
+
+            // ------------------------------------------------
+            // UPLOAD NEW IMAGE
+            // ------------------------------------------------
+
+            const uploadResult =
+                await new Promise(
+                    (resolve, reject) => {
+
+                        const stream =
+                            cloudinary.uploader.upload_stream(
+
+                                {
+
+                                    folder:
+                                        "paisavasool/profile-pictures",
+
+                                    resource_type:
+                                        "image"
+
+                                },
+
+                                (error, result) => {
+
+                                    if (error) {
+
+                                        reject(error);
+
+                                        return;
+
+                                    }
+
+                                    resolve(result);
+
+                                }
+
+                            );
+
+
+                        stream.end(
+                            req.file.buffer
+                        );
+
+                    }
+                );
+
+
+            // ------------------------------------------------
+            // SAVE IMAGE DETAILS
+            // ------------------------------------------------
+
+            user.profilePicture = {
+
+                url:
+                    uploadResult.secure_url,
+
+                publicId:
+                    uploadResult.public_id
+
+            };
+
+
+            await user.save();
+
+
+            // ------------------------------------------------
+            // RESPONSE
+            // ------------------------------------------------
+
+            res.status(200).json({
+
+                message:
+                    "Profile picture updated successfully",
+
+                user:
+                    formatUser(user)
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Profile picture upload error:",
+                error.message
+            );
+
+            res.status(500).json({
+
+                message:
+                    "Failed to upload profile picture"
+
+            });
+
+        }
+
+    };
+
+
+// ============================================================
+// REMOVE PROFILE PICTURE
+// ============================================================
+
+const removeProfilePicture =
+    async (req, res) => {
+
+        try {
+
+            const user =
+                await User.findById(
+                    req.user._id
+                );
+
+
+            if (!user) {
+
+                return res.status(404).json({
+
+                    message:
+                        "User not found"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // DELETE FROM CLOUDINARY
+            // ------------------------------------------------
+
+            if (
+                user.profilePicture &&
+                user.profilePicture.publicId
+            ) {
+
+                try {
+
+                    await cloudinary.uploader.destroy(
+
+                        user.profilePicture.publicId
+
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Profile picture delete error:",
+                        error.message
+                    );
+
+                }
+
+            }
+
+
+            // ------------------------------------------------
+            // CLEAR DATABASE
+            // ------------------------------------------------
+
+            user.profilePicture = {
+
+                url: "",
+
+                publicId: ""
+
+            };
+
+
+            await user.save();
+
+
+            // ------------------------------------------------
+            // RESPONSE
+            // ------------------------------------------------
+
+            res.status(200).json({
+
+                message:
+                    "Profile picture removed successfully",
+
+                user:
+                    formatUser(user)
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Remove profile picture error:",
+                error.message
+            );
+
+            res.status(500).json({
+
+                message:
+                    "Failed to remove profile picture"
+
+            });
+
+        }
+
+    };
+
+
+// ============================================================
 // EXPORT CONTROLLERS
 // ============================================================
 
@@ -191,6 +696,12 @@ module.exports = {
 
     getProfile,
 
-    updateProfile
+    updateProfile,
+
+    changePassword,
+
+    uploadProfilePicture,
+
+    removeProfilePicture
 
 };
