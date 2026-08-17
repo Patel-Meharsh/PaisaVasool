@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {BrowserRouter, Routes, Route } from "react-router-dom";
+
 import "./App.css";
+
 import Navbar from "./components/Navbar";
 
 import Home from "./pages/Home";
@@ -7,7 +9,6 @@ import Products from "./pages/Products";
 import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
 import Register from "./pages/Register";
-import VerifyEmail from "./pages/VerifyEmail";
 import Login from "./pages/Login";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -25,145 +26,180 @@ import Profile from "./pages/Profile";
 import PriceAlerts from "./pages/PriceAlerts";
 import Recommendations from "./pages/Recommendations";
 
+
 function App() {
+
     return (
+
         <BrowserRouter>
 
             <Navbar />
 
+
             <Routes>
+
 
                 {/* ==================================================
                     CUSTOMER PAGES
                 ================================================== */}
 
-                {/* Home */}
+
+                {/* HOME */}
+
                 <Route
                     path="/"
                     element={<Home />}
                 />
 
-                {/* Products */}
+
+                {/* PRODUCTS */}
+
                 <Route
                     path="/products"
                     element={<Products />}
                 />
 
-                {/* Product Details */}
+
+                {/* PRODUCT DETAILS */}
+
                 <Route
                     path="/products/:id"
                     element={<ProductDetails />}
                 />
 
-                {/* Register */}
+
+                {/* REGISTER */}
+
                 <Route
                     path="/register"
                     element={<Register />}
                 />
 
-                {/* Email Verification */}
-                <Route
-                    path="/verify-email"
-                    element={<VerifyEmail />}
-                />
 
-                {/* Login */}
+                {/* LOGIN */}
+
                 <Route
                     path="/login"
                     element={<Login />}
                 />
 
-                {/* Cart */}
+
+                {/* CART */}
+
                 <Route
                     path="/cart"
                     element={<Cart />}
                 />
 
-                {/* Checkout */}
+
+                {/* CHECKOUT */}
+
                 <Route
                     path="/checkout"
                     element={<Checkout />}
                 />
 
-                {/* Order Success */}
+
+                {/* ORDER SUCCESS */}
+
                 <Route
                     path="/order-success/:id"
                     element={<OrderSuccess />}
                 />
 
-                {/* My Orders */}
+
+                {/* MY ORDERS */}
+
                 <Route
                     path="/orders"
                     element={<Orders />}
                 />
 
-                {/* Order Details */}
+
+                {/* ORDER DETAILS */}
+
                 <Route
                     path="/orders/:id"
                     element={<OrderDetails />}
                 />
 
-                {/* Profile */}
+
+                {/* PROFILE */}
+
                 <Route
                     path="/profile"
                     element={<Profile />}
                 />
 
-                {/* Price Alerts */}
+
+                {/* PRICE ALERTS */}
+
                 <Route
                     path="/price-alerts"
                     element={<PriceAlerts />}
                 />
 
-                {/* Recommendations */}
-                {/* Recommendations are displayed on the Home page.
-                    No separate route is required. */}
-                
 
                 {/* ==================================================
                     ADMIN PAGES
                 ================================================== */}
 
-                {/* Admin Dashboard */}
+
+                {/* ADMIN DASHBOARD */}
+
                 <Route
                     path="/admin"
                     element={<AdminDashboard />}
                 />
 
-                {/* Admin Orders */}
+
+                {/* ADMIN ORDERS */}
+
                 <Route
                     path="/admin/orders"
                     element={<AdminOrders />}
                 />
 
-                {/* Admin Returns */}
+
+                {/* ADMIN RETURNS */}
+
                 <Route
                     path="/admin/returns"
                     element={<AdminReturns />}
                 />
 
-                {/* Admin Products */}
+
+                {/* ADMIN PRODUCTS */}
+
                 <Route
                     path="/admin/products"
                     element={<AdminProducts />}
                 />
 
-                {/* Admin Categories */}
+
+                {/* ADMIN CATEGORIES */}
+
                 <Route
                     path="/admin/categories"
                     element={<AdminCategories />}
                 />
 
-                {/* Admin Customers */}
+
+                {/* ADMIN CUSTOMERS */}
+
                 <Route
                     path="/admin/customers"
                     element={<AdminCustomers />}
                 />
 
+
             </Routes>
 
         </BrowserRouter>
+
     );
+
 }
+
 
 export default App;

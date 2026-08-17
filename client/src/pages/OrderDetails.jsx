@@ -321,167 +321,192 @@ function OrderDetails() {
     // UI
     // ============================================================
 
-    return (
+   return (
 
-        <div className="order-details-page">
+    <div className="order-details-page">
 
-            {/* Back */}
+        {/* ====================================================
+            BACK TO ORDERS
+        ==================================================== */}
 
-            <Link to="/orders">
-                ← Back to My Orders
-            </Link>
+        <Link
+            to="/orders"
+            className="order-details-back"
+        >
+            ← Back to My Orders
+        </Link>
 
-            {/* Order Header */}
 
-            <h1>
-                Order Details
-            </h1>
+        {/* ====================================================
+            PAGE HEADER
+        ==================================================== */}
 
-            <h2>
-                Order #{order._id}
-            </h2>
+        <div className="order-details-header">
 
-            {/* Order Information */}
+            <div>
 
-            <div className="order-information">
+                <span className="order-details-label">
+                    Order Details
+                </span>
 
-                <p>
-                    <strong>Status:</strong>{" "}
-                    {order.status}
-                </p>
-
-                <p>
-                    <strong>Payment Method:</strong>{" "}
-                    {order.paymentMethod}
-                </p>
-
-                <p>
-                    <strong>Payment Status:</strong>{" "}
-                    {order.paymentStatus}
-                </p>
-
-                <p>
-                    <strong>Total Items:</strong>{" "}
-                    {totalItems}
-                </p>
+                <h1>
+                    Order #{order._id}
+                </h1>
 
             </div>
 
-            {/* Cancel Order */}
+            <span
+                className={`order-details-status order-status-${order.status?.toLowerCase()}`}
+            >
+                {order.status}
+            </span>
 
-            {canCancel && (
+        </div>
 
-                <div className="cancel-order-section">
 
-                    <button
-                        onClick={handleCancelOrder}
-                        disabled={cancelLoading}
-                    >
-                        {cancelLoading
-                            ? "Cancelling..."
-                            : "Cancel Order"}
-                    </button>
+        {/* ====================================================
+            ORDER INFORMATION
+        ==================================================== */}
+
+        <div className="order-information">
+
+            <div className="order-information-item">
+
+                <span>
+                    Order Status
+                </span>
+
+                <strong
+                    className={`detail-status detail-status-${order.status?.toLowerCase()}`}
+                >
+                    {order.status}
+                </strong>
+
+            </div>
+
+
+            <div className="order-information-item">
+
+                <span>
+                    Payment Method
+                </span>
+
+                <strong>
+                    {order.paymentMethod}
+                </strong>
+
+            </div>
+
+
+            <div className="order-information-item">
+
+                <span>
+                    Payment Status
+                </span>
+
+                <strong
+                    className={`detail-status detail-payment-${order.paymentStatus?.toLowerCase()}`}
+                >
+                    {order.paymentStatus}
+                </strong>
+
+            </div>
+
+
+            <div className="order-information-item">
+
+                <span>
+                    Total Items
+                </span>
+
+                <strong>
+                    {totalItems}
+                    {totalItems === 1
+                        ? " Item"
+                        : " Items"}
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        {/* ====================================================
+            CANCEL ERROR
+        ==================================================== */}
+
+        {cancelError && (
+
+            <div className="order-details-error">
+                {cancelError}
+            </div>
+
+        )}
+
+
+        {/* ====================================================
+            CANCEL ORDER
+        ==================================================== */}
+
+        {canCancel && (
+
+            <div className="cancel-order-section">
+
+                <div>
+
+                    <h3>
+                        Cancel Order
+                    </h3>
+
+                    <p>
+                        You can cancel this order while it is
+                        still being processed.
+                    </p>
 
                 </div>
 
-            )}
+                <button
+                    onClick={handleCancelOrder}
+                    disabled={cancelLoading}
+                    className="cancel-order-button"
+                >
+                    {cancelLoading
+                        ? "Cancelling..."
+                        : "Cancel Order"}
+                </button>
 
-            {cancelError && (
-                <p>{cancelError}</p>
-            )}
+            </div>
 
-            {/* Return Section */}
+        )}
 
-            {order.status === "delivered" && (
 
-                <div className="return-section">
+        {/* ====================================================
+            PRODUCTS
+        ==================================================== */}
+
+        <div className="order-items">
+
+            <div className="section-heading">
+
+                <div>
 
                     <h2>
-                        Return
+                        Products
                     </h2>
 
-                    {order.returnStatus !== "none" ? (
-
-                        <div>
-
-                            <p>
-                                <strong>
-                                    Return Status:
-                                </strong>{" "}
-                                {order.returnStatus}
-                            </p>
-
-                            {order.returnReason && (
-
-                                <p>
-                                    <strong>
-                                        Return Reason:
-                                    </strong>{" "}
-                                    {order.returnReason}
-                                </p>
-
-                            )}
-
-                        </div>
-
-                    ) : (
-
-                        <div>
-
-                            <p>
-                                If you want to return this
-                                order, please provide a reason.
-                            </p>
-
-                            <textarea
-                                value={returnReason}
-                                onChange={(event) =>
-                                    setReturnReason(
-                                        event.target.value
-                                    )
-                                }
-                                placeholder="Enter return reason"
-                                rows="4"
-                            />
-
-                            <br />
-                            <br />
-
-                            <button
-                                onClick={handleRequestReturn}
-                                disabled={
-                                    returnLoading ||
-                                    !canRequestReturn
-                                }
-                            >
-                                {returnLoading
-                                    ? "Submitting..."
-                                    : "Request Return"}
-                            </button>
-
-                        </div>
-
-                    )}
-
-                    {returnError && (
-                        <p>{returnError}</p>
-                    )}
-
-                    {returnSuccess && (
-                        <p>{returnSuccess}</p>
-                    )}
+                    <p>
+                        {totalItems}
+                        {totalItems === 1
+                            ? " item"
+                            : " items"} in this order
+                    </p>
 
                 </div>
 
-            )}
+            </div>
 
-            {/* Products */}
 
-            <div className="order-items">
-
-                <h2>
-                    Products
-                </h2>
+            <div className="order-items-list">
 
                 {order.items.map((item) => (
 
@@ -490,42 +515,61 @@ function OrderDetails() {
                         key={item._id}
                     >
 
-                        <h3>
-                            {item.name}
-                        </h3>
+                        {/* Product Image */}
 
-                        {item.product?.images &&
-                        item.product.images.length > 0 ? (
+                        <div className="order-item-image">
 
-                            <img
-                                src={
-                                    item.product.images[0]
-                                }
-                                alt={item.name}
-                                width="150"
-                            />
+                            {item.product?.images &&
+                            item.product.images.length > 0 ? (
 
-                        ) : (
+                                <img
+                                    src={item.product.images[0]}
+                                    alt={item.name}
+                                />
+
+                            ) : (
+
+                                <span>
+                                    No Image
+                                </span>
+
+                            )}
+
+                        </div>
+
+
+                        {/* Product Details */}
+
+                        <div className="order-item-info">
+
+                            <h3>
+                                {item.name}
+                            </h3>
 
                             <p>
-                                No Image
+                                Price: ₹{item.price}
                             </p>
 
-                        )}
+                            <p>
+                                Quantity: {item.quantity}
+                            </p>
 
-                        <p>
-                            Price: ₹{item.price}
-                        </p>
+                        </div>
 
-                        <p>
-                            Quantity: {item.quantity}
-                        </p>
 
-                        <p>
-                            Subtotal: ₹
-                            {item.price *
-                                item.quantity}
-                        </p>
+                        {/* Product Subtotal */}
+
+                        <div className="order-item-price">
+
+                            <span>
+                                Subtotal
+                            </span>
+
+                            <strong>
+                                ₹{item.price * item.quantity}
+                            </strong>
+
+                        </div>
 
                     </div>
 
@@ -533,23 +577,54 @@ function OrderDetails() {
 
             </div>
 
-            {/* Total */}
+        </div>
 
-            <h2>
-                Total: ₹{order.totalAmount}
-            </h2>
 
-            {/* Shipping Address */}
+        {/* ====================================================
+            ORDER TOTAL
+        ==================================================== */}
 
-            <div className="shipping-address">
+        <div className="order-total-section">
 
-                <h2>
-                    Shipping Address
-                </h2>
+            <span>
+                Order Total
+            </span>
 
-                <p>
+            <strong>
+                ₹{order.totalAmount}
+            </strong>
+
+        </div>
+
+
+        {/* ====================================================
+            SHIPPING ADDRESS
+        ==================================================== */}
+
+        <div className="shipping-address">
+
+            <div className="section-heading">
+
+                <div>
+
+                    <h2>
+                        Shipping Address
+                    </h2>
+
+                    <p>
+                        Delivery information
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div className="shipping-address-content">
+
+                <strong>
                     {order.shippingAddress.fullName}
-                </p>
+                </strong>
 
                 <p>
                     {order.shippingAddress.address}
@@ -570,18 +645,157 @@ function OrderDetails() {
 
             </div>
 
-            {/* Cancelled */}
+        </div>
 
-            {order.status === "cancelled" && (
+
+        {/* ====================================================
+            RETURN SECTION
+        ==================================================== */}
+
+        {order.status === "delivered" && (
+
+            <div className="return-section">
+
+                <div className="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Return
+                        </h2>
+
+                        <p>
+                            Manage your return request
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                {order.returnStatus !== "none" ? (
+
+                    <div className="return-status-card">
+
+                        <div className="return-status-row">
+
+                            <span>
+                                Return Status
+                            </span>
+
+                            <strong
+                                className={`return-status return-${order.returnStatus?.toLowerCase()}`}
+                            >
+                                {order.returnStatus}
+                            </strong>
+
+                        </div>
+
+
+                        {order.returnReason && (
+
+                            <div className="return-reason">
+
+                                <span>
+                                    Return Reason
+                                </span>
+
+                                <p>
+                                    {order.returnReason}
+                                </p>
+
+                            </div>
+
+                        )}
+
+                    </div>
+
+                ) : (
+
+                    <div className="return-request-form">
+
+                        <p>
+                            If you want to return this delivered
+                            order, please provide a reason below.
+                        </p>
+
+
+                        <textarea
+                            value={returnReason}
+                            onChange={(event) =>
+                                setReturnReason(
+                                    event.target.value
+                                )
+                            }
+                            placeholder="Enter your return reason..."
+                            rows="4"
+                        />
+
+
+                        {returnError && (
+
+                            <div className="return-error">
+                                {returnError}
+                            </div>
+
+                        )}
+
+
+                        {returnSuccess && (
+
+                            <div className="return-success">
+                                {returnSuccess}
+                            </div>
+
+                        )}
+
+
+                        <button
+                            onClick={handleRequestReturn}
+                            disabled={
+                                returnLoading ||
+                                !canRequestReturn
+                            }
+                            className="return-button"
+                        >
+                            {returnLoading
+                                ? "Submitting..."
+                                : "Request Return"}
+                        </button>
+
+                    </div>
+
+                )}
+
+            </div>
+
+        )}
+
+
+        {/* ====================================================
+            CANCELLED ORDER
+        ==================================================== */}
+
+        {order.status === "cancelled" && (
+
+            <div className="cancelled-order-message">
+
+                <strong>
+                    This order has been cancelled.
+                </strong>
 
                 <p>
-                    This order has been cancelled.
+                    No further actions are available for
+                    this order.
                 </p>
 
-            )}
+            </div>
 
-        </div>
-    );
+        )}
+
+    </div>
+
+);
 }
 
 export default OrderDetails;

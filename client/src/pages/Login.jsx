@@ -1,113 +1,320 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function Login() {
+
     const navigate = useNavigate();
 
+
+    // ============================================================
+    // FORM STATE
+    // ============================================================
+
     const [formData, setFormData] = useState({
+
         email: "",
+
         password: ""
+
     });
 
+
+    // ============================================================
+    // MESSAGE STATE
+    // ============================================================
+
     const [message, setMessage] = useState("");
+
     const [error, setError] = useState("");
+
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (e) => {
+
+    // ============================================================
+    // HANDLE INPUT CHANGE
+    // ============================================================
+
+    const handleChange = (event) => {
+
         setFormData({
+
             ...formData,
-            [e.target.name]: e.target.value
+
+            [event.target.name]:
+                event.target.value
+
         });
+
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+
+    // ============================================================
+    // HANDLE LOGIN
+    // ============================================================
+
+    const handleSubmit = async (event) => {
+
+        event.preventDefault();
 
         setMessage("");
+
         setError("");
+
         setLoading(true);
 
+
         try {
+
             const response = await fetch(
+
                 "http://localhost:5000/api/auth/login",
+
                 {
+
                     method: "POST",
+
                     headers: {
-                        "Content-Type": "application/json"
+
+                        "Content-Type":
+                            "application/json"
+
                     },
-                    body: JSON.stringify(formData)
+
+                    body:
+                        JSON.stringify(formData)
+
                 }
+
             );
 
-            const data = await response.json();
+
+            const data =
+                await response.json();
+
 
             if (!response.ok) {
-                setError(data.message || "Login failed");
+
+                setError(
+                    data.message ||
+                    "Login failed"
+                );
+
                 return;
+
             }
 
-            // Save JWT token.
-            localStorage.setItem("token", data.token);
 
-            // Save user information.
+            // ----------------------------------------------------
+            // SAVE JWT TOKEN
+            // ----------------------------------------------------
+
             localStorage.setItem(
-                "user",
-                JSON.stringify(data.user)
+                "token",
+                data.token
             );
 
-            setMessage("Login successful!");
 
-            // Go to home page.
+            // ----------------------------------------------------
+            // SAVE USER INFORMATION
+            // ----------------------------------------------------
+
+            localStorage.setItem(
+
+                "user",
+
+                JSON.stringify(
+                    data.user
+                )
+
+            );
+
+
+            setMessage(
+                "Login successful!"
+            );
+
+
+            // ----------------------------------------------------
+            // GO TO HOME PAGE
+            // ----------------------------------------------------
+
             navigate("/");
 
+
         } catch (error) {
-            setError("Unable to connect to server");
+
+            console.error(
+                "Login error:",
+                error
+            );
+
+            setError(
+                "Unable to connect to server"
+            );
+
         } finally {
+
             setLoading(false);
+
         }
+
     };
 
+
+    // ============================================================
+    // UI
+    // ============================================================
+
     return (
-        <div>
-            <h2>Login</h2>
 
-            <form onSubmit={handleSubmit}>
+        <div className="login-page">
 
-                <div>
-                    <label>Email</label>
 
-                    <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                    />
+            <div className="login-card">
+
+
+                {/* ==================================================
+                    HEADER
+                ================================================== */}
+
+                <div className="login-header">
+
+                    <h2>
+                        Welcome Back :)
+                    </h2>
+
+                    <p>
+                        Login to your PaisaVasool account.
+                    </p>
+
                 </div>
 
-                <div>
-                    <label>Password</label>
 
-                    <input
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                    />
+                {/* ==================================================
+                    LOGIN FORM
+                ================================================== */}
+
+                <form
+                    onSubmit={handleSubmit}
+                    className="login-form"
+                >
+
+
+                    {/* EMAIL */}
+
+                    <div className="login-field">
+
+                        <label htmlFor="login-email">
+                            Email
+                        </label>
+
+                        <input
+                            id="login-email"
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="Enter your email"
+                            required
+                        />
+
+                    </div>
+
+
+                    {/* PASSWORD */}
+
+                    <div className="login-field">
+
+                        <label htmlFor="login-password">
+                            Password
+                        </label>
+
+                        <input
+                            id="login-password"
+                            type="password"
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            placeholder="Enter your password"
+                            required
+                        />
+
+                    </div>
+
+
+                    {/* LOGIN BUTTON */}
+
+                    <button
+                        type="submit"
+                        className="login-button"
+                        disabled={loading}
+                    >
+
+                        {loading
+                            ? "Logging in..."
+                            : "Login"}
+
+                    </button>
+
+
+                </form>
+
+
+                {/* ==================================================
+                    SUCCESS MESSAGE
+                ================================================== */}
+
+                {message && (
+
+                    <p className="login-message">
+
+                        {message}
+
+                    </p>
+
+                )}
+
+
+                {/* ==================================================
+                    ERROR MESSAGE
+                ================================================== */}
+
+                {error && (
+
+                    <p className="login-message login-error">
+
+                        {error}
+
+                    </p>
+
+                )}
+
+
+                {/* ==================================================
+                    FOOTER
+                ================================================== */}
+
+                <div className="login-footer">
+
+                    <p>
+
+                        Don't have an account?{" "}
+
+                        <Link to="/register">
+                            Create an account
+                        </Link>
+
+                    </p>
+
                 </div>
 
-                <button type="submit" disabled={loading}>
-                    {loading ? "Logging in..." : "Login"}
-                </button>
 
-            </form>
-
-            {message && <p>{message}</p>}
-
-            {error && <p>{error}</p>}
+            </div>
 
         </div>
+
     );
+
 }
+
 export default Login;

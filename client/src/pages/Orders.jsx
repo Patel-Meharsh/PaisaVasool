@@ -83,82 +83,171 @@ function Orders() {
     // ============================================================
 
     return (
-        <div className="orders-page">
+    <div className="orders-page">
 
-            <h1>My Orders</h1>
+        <div className="orders-header">
 
-            {orders.length === 0 ? (
+            <div>
+                <h1>My Orders</h1>
 
-                <div className="empty-orders">
+                <p>
+                    View and manage your recent purchases.
+                </p>
+            </div>
 
-                    <p>
-                        You have not placed any orders yet.
-                    </p>
+        </div>
 
-                    <button
-                        onClick={() => navigate("/products")}
-                    >
-                        Start Shopping
-                    </button>
 
+        {orders.length === 0 ? (
+
+            <div className="empty-orders">
+
+                <div className="empty-orders-icon">
+                    🛍
                 </div>
 
-            ) : (
+                <h2>No Orders Yet</h2>
 
-                <div className="orders-list">
+                <p>
+                    You haven't placed any orders yet.
+                    Start shopping and your orders will appear here.
+                </p>
 
-                    {orders.map((order) => (
+                <button
+                    onClick={() => navigate("/products")}
+                >
+                    Start Shopping
+                </button>
 
-                        <div
-                            className="order-card"
-                            key={order._id}
-                        >
+            </div>
 
-                            <h3>
-                                Order #{order._id}
-                            </h3>
+        ) : (
 
-                            <p>
-                                <strong>Total:</strong>{" "}
-                                ₹{order.totalAmount}
-                            </p>
+            <div className="orders-list">
 
-                            <p>
-                                <strong>Status:</strong>{" "}
+                {orders.map((order) => (
+
+                    <div
+                        className="order-card"
+                        key={order._id}
+                    >
+
+                        <div className="order-card-header">
+
+                            <div>
+
+                                <span className="order-label">
+                                    Order
+                                </span>
+
+                                <h3>
+                                    #{order._id}
+                                </h3>
+
+                            </div>
+
+                            <span
+                                className={`order-status order-status-${order.status?.toLowerCase()}`}
+                            >
                                 {order.status}
-                            </p>
+                            </span>
 
-                            <p>
-                                <strong>Payment:</strong>{" "}
-                                {order.paymentMethod}
-                            </p>
+                        </div>
 
-                            <p>
-                                <strong>Payment Status:</strong>{" "}
-                                {order.paymentStatus}
-                            </p>
 
-                            <p>
-                                <strong>Items:</strong>{" "}
-                                {order.items?.length || 0}
-                            </p>
+                        <div className="order-card-body">
+
+                            <div className="order-info">
+
+                                <span>
+                                    Items
+                                </span>
+
+                                <strong>
+                                    {order.items?.length || 0}
+                                    {order.items?.length === 1
+                                        ? " Item"
+                                        : " Items"}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="order-info">
+
+                                <span>
+                                    Total
+                                </span>
+
+                                <strong className="order-total">
+                                    ₹{order.totalAmount}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="order-info">
+
+                                <span>
+                                    Payment
+                                </span>
+
+                                <strong>
+                                    {order.paymentMethod}
+                                </strong>
+
+                            </div>
+
+
+                            <div className="order-info">
+
+                                <span>
+                                    Payment Status
+                                </span>
+
+                                <strong
+                                    className={`payment-status payment-${order.paymentStatus?.toLowerCase()}`}
+                                >
+                                    {order.paymentStatus}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="order-card-footer">
+
+                            <span className="order-status-text">
+
+                                Order Status:
+                                <strong>
+                                    {order.status}
+                                </strong>
+
+                            </span>
+
 
                             <Link
                                 to={`/orders/${order._id}`}
+                                className="view-order-button"
                             >
                                 View Order
+                                <span>→</span>
                             </Link>
 
                         </div>
 
-                    ))}
+                    </div>
 
-                </div>
+                ))}
 
-            )}
+            </div>
 
-        </div>
-    );
+        )}
+
+    </div>
+);
 }
 
 export default Orders;

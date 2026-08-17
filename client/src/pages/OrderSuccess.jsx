@@ -1,37 +1,58 @@
 import { Link, useParams } from "react-router-dom";
 
 function OrderSuccess() {
+
     const { id } = useParams();
 
     return (
-        <div>
+        <div className="order-success-page">
 
-            <h1>Order Placed Successfully! 🎉</h1>
+            <div className="order-success-card">
 
-            <p>
-                Thank you for shopping with PaisaVasool.
-            </p>
+                <div className="order-success-icon">
+                    ✓
+                </div>
 
-            <p>
-                Your Order ID:
-            </p>
+                <h1>
+                    Order Placed Successfully!
+                </h1>
 
-            <p>
-                <strong>{id}</strong>
-            </p>
+                <p className="order-success-message">
+                    Thank you for shopping with PaisaVasool.
+                    Your order has been confirmed successfully.
+                </p>
 
-            <br />
+                <div className="order-id-section">
 
-            <Link to="/orders">
-                View My Orders
-            </Link>
+                    <p>
+                        Your Order ID
+                    </p>
 
-            <br />
-            <br />
+                    <strong>
+                        {id}
+                    </strong>
 
-            <Link to="/products">
-                Continue Shopping
-            </Link>
+                </div>
+
+                <div className="order-success-actions">
+
+                    <Link
+                        to="/orders"
+                        className="order-orders-button"
+                    >
+                        View My Orders
+                    </Link>
+
+                    <Link
+                        to="/products"
+                        className="order-shopping-button"
+                    >
+                        Continue Shopping
+                    </Link>
+
+                </div>
+
+            </div>
 
         </div>
     );
