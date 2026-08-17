@@ -2,47 +2,135 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function Home() {
-    const navigate = useNavigate();
 
-    const [products, setProducts] = useState([]);
-    const [recommendations, setRecommendations] = useState([]);
+    const navigate =
+        useNavigate();
 
-    const [loadingProducts, setLoadingProducts] = useState(true);
+
+    const [products, setProducts] =
+        useState([]);
+
+    const [recommendations, setRecommendations] =
+        useState([]);
+
+
+    const [loadingProducts, setLoadingProducts] =
+        useState(true);
+
     const [loadingRecommendations, setLoadingRecommendations] =
         useState(false);
 
-    const token = localStorage.getItem("token");
+
+    const token =
+        localStorage.getItem("token");
+
+
+    // ============================================================
+    // LIGHTWEIGHT FALLBACK IMAGES
+    // ============================================================
+
+    const fallbackImages = [
+
+        "https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?auto=format&fit=crop&w=700&q=70",
+
+        "https://images.unsplash.com/photo-1589003077984-894e133dabab?auto=format&fit=crop&w=700&q=70",
+
+        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=70",
+
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=70",
+
+        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=70",
+
+        "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=700&q=70"
+
+    ];
+
+
+    // ============================================================
+    // GET PRODUCT IMAGE
+    // ============================================================
+
+    const getProductImage =
+        (product, index) => {
+
+            if (
+                product?.images &&
+                product.images.length > 0
+            ) {
+
+                return product.images[0];
+
+            }
+
+
+            return fallbackImages[
+                index % fallbackImages.length
+            ];
+
+        };
+
 
     // ============================================================
     // FETCH PRODUCTS
     // ============================================================
 
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await fetch(
-                    "http://localhost:5000/api/products"
-                );
 
-                const data = await response.json();
+        const fetchProducts =
+            async () => {
 
-                if (!response.ok) {
-                    throw new Error(
-                        data.message || "Failed to fetch products"
+                try {
+
+                    const response =
+                        await fetch(
+                            "http://localhost:5000/api/products"
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+
+                            data.message ||
+                            "Failed to fetch products"
+
+                        );
+
+                    }
+
+
+                    setProducts(
+                        data.products ||
+                        data ||
+                        []
                     );
+
+                } catch (error) {
+
+                    console.error(
+                        "Products error:",
+                        error
+                    );
+
+                    setProducts([]);
+
+                } finally {
+
+                    setLoadingProducts(false);
+
                 }
 
-                setProducts(data.products || data || []);
-            } catch (error) {
-                console.error("Products error:", error);
-                setProducts([]);
-            } finally {
-                setLoadingProducts(false);
-            }
-        };
+            };
+
 
         fetchProducts();
+
     }, []);
+
 
     // ============================================================
     // FETCH RECOMMENDATIONS
@@ -50,102 +138,217 @@ function Home() {
     // ============================================================
 
     useEffect(() => {
+
         if (!token) {
+
             return;
+
         }
 
-        const fetchRecommendations = async () => {
-            try {
-                setLoadingRecommendations(true);
 
-                const response = await fetch(
-                    "http://localhost:5000/api/products/recommendations",
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
+        const fetchRecommendations =
+            async () => {
+
+                try {
+
+                    setLoadingRecommendations(true);
+
+
+                    const response =
+                        await fetch(
+
+                            "http://localhost:5000/api/products/recommendations",
+
+                            {
+
+                                headers: {
+
+                                    Authorization:
+                                        `Bearer ${token}`
+
+                                }
+
+                            }
+
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+
+                            data.message ||
+                            "Failed to fetch recommendations"
+
+                        );
+
                     }
-                );
 
-                const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        data.message || "Failed to fetch recommendations"
+                    setRecommendations(
+                        data.recommendations ||
+                        []
                     );
+
+                } catch (error) {
+
+                    console.error(
+                        "Recommendation error:",
+                        error
+                    );
+
+                    setRecommendations([]);
+
+                } finally {
+
+                    setLoadingRecommendations(false);
+
                 }
 
-                setRecommendations(data.recommendations || []);
-            } catch (error) {
-                console.error("Recommendation error:", error);
-                setRecommendations([]);
-            } finally {
-                setLoadingRecommendations(false);
-            }
-        };
+            };
+
 
         fetchRecommendations();
+
     }, [token]);
+
 
     // ============================================================
     // PRODUCT CARD
     // ============================================================
 
-    const ProductCard = ({ product }) => {
-        return (
-            <article className="home-product-card">
+    const ProductCard =
+        ({
+            product,
+            imageIndex
+        }) => {
 
-                <div className="home-product-image">
-                    {product.images && product.images.length > 0 ? (
+            const image =
+                getProductImage(
+                    product,
+                    imageIndex
+                );
+
+
+            return (
+
+                <article className="home-product-card">
+
+
+                    {/* IMAGE */}
+
+                    <div className="home-product-image">
+
                         <img
-                            src={product.images[0]}
-                            alt={product.name}
+                            src={image}
+                            alt={
+                                product.name ||
+                                "Product"
+                            }
+                            loading="lazy"
+                            decoding="async"
+                            onError={(event) => {
+
+                                if (
+                                    event.currentTarget.dataset.fallback
+                                ) {
+
+                                    return;
+
+                                }
+
+
+                                event.currentTarget.dataset.fallback =
+                                    "true";
+
+
+                                event.currentTarget.src =
+                                    fallbackImages[
+                                        imageIndex %
+                                        fallbackImages.length
+                                    ];
+
+                            }}
                         />
-                    ) : (
-                        <div className="product-no-image">
-                            No Image
-                        </div>
-                    )}
-                </div>
 
-                <div className="home-product-info">
+                    </div>
 
-                    <span className="product-stock">
-                        {product.stock > 0
-                            ? "IN STOCK"
-                            : "OUT OF STOCK"}
-                    </span>
 
-                    <h3>
-                        {product.name}
-                    </h3>
+                    {/* INFORMATION */}
 
-                    <p className="product-category">
-                        {product.category?.name ||
-                            product.category ||
-                            "Products"}
-                    </p>
+                    <div className="home-product-info">
 
-                    <p className="home-product-price">
-                        ₹{product.price}
-                    </p>
 
-                    <button
-                        onClick={() =>
-                            navigate(`/products/${product._id}`)
-                        }
-                    >
-                        VIEW PRODUCT
-                    </button>
+                        <span className="product-stock">
 
-                </div>
+                            {product.stock > 0
 
-            </article>
-        );
-    };
+                                ? "IN STOCK"
+
+                                : "OUT OF STOCK"}
+
+                        </span>
+
+
+                        <h3>
+
+                            {product.name}
+
+                        </h3>
+
+
+                        <p className="product-category">
+
+                            {product.category?.name ||
+
+                                product.category ||
+
+                                "Products"}
+
+                        </p>
+
+
+                        <p className="home-product-price">
+
+                            ₹{product.price}
+
+                        </p>
+
+
+                        <button
+                            onClick={() =>
+                                navigate(
+                                    `/products/${product._id}`
+                                )
+                            }
+                        >
+
+                            VIEW PRODUCT
+
+                        </button>
+
+
+                    </div>
+
+                </article>
+
+            );
+
+        };
+
+
+    // ============================================================
+    // RENDER
+    // ============================================================
 
     return (
+
         <main className="home-page">
+
 
             {/* ====================================================
                 HERO
@@ -155,28 +358,36 @@ function Home() {
 
                 <div className="hero-overlay"></div>
 
+
                 <div className="hero-content">
 
                     <span>
                         PAISAVASOOL EXCLUSIVE COLLECTION
                     </span>
 
+
                     <h1>
+
                         SMART SHOPPING.
                         <br />
                         FULL VALUE.
+
                     </h1>
+
 
                     <p>
                         Har Deal, Full Value.
                     </p>
+
 
                     <button
                         onClick={() =>
                             navigate("/products")
                         }
                     >
+
                         SHOP NOW →
+
                     </button>
 
                 </div>
@@ -190,6 +401,7 @@ function Home() {
 
             <section className="benefits-section">
 
+
                 <div className="benefit-item">
 
                     <span className="benefit-icon">
@@ -197,6 +409,7 @@ function Home() {
                     </span>
 
                     <div>
+
                         <h3>
                             FREE DELIVERY
                         </h3>
@@ -204,6 +417,7 @@ function Home() {
                         <p>
                             Free shipping on selected orders
                         </p>
+
                     </div>
 
                 </div>
@@ -216,6 +430,7 @@ function Home() {
                     </span>
 
                     <div>
+
                         <h3>
                             EASY RETURNS
                         </h3>
@@ -223,6 +438,7 @@ function Home() {
                         <p>
                             Hassle-free return policy
                         </p>
+
                     </div>
 
                 </div>
@@ -235,6 +451,7 @@ function Home() {
                     </span>
 
                     <div>
+
                         <h3>
                             SECURE PAYMENT
                         </h3>
@@ -242,6 +459,7 @@ function Home() {
                         <p>
                             Safe and secure checkout
                         </p>
+
                     </div>
 
                 </div>
@@ -254,6 +472,7 @@ function Home() {
                     </span>
 
                     <div>
+
                         <h3>
                             BEST DEALS
                         </h3>
@@ -261,9 +480,11 @@ function Home() {
                         <p>
                             More value on every purchase
                         </p>
+
                     </div>
 
                 </div>
+
 
             </section>
 
@@ -272,7 +493,11 @@ function Home() {
                 BESTSELLER
             ==================================================== */}
 
-            <section className="home-products-section">
+            <section
+                id="bestsellers"
+                className="home-products-section bestseller-section"
+            >
+
 
                 <div className="section-heading">
 
@@ -288,7 +513,9 @@ function Home() {
                 {loadingProducts ? (
 
                     <div className="section-loading">
+
                         Loading products...
+
                     </div>
 
                 ) : (
@@ -297,12 +524,26 @@ function Home() {
 
                         {products
                             .slice(0, 8)
-                            .map((product) => (
-                                <ProductCard
-                                    key={product._id}
-                                    product={product}
-                                />
-                            ))}
+                            .map(
+                                (
+                                    product,
+                                    index
+                                ) => (
+
+                                    <ProductCard
+                                        key={
+                                            product._id
+                                        }
+                                        product={
+                                            product
+                                        }
+                                        imageIndex={
+                                            index
+                                        }
+                                    />
+
+                                )
+                            )}
 
                     </div>
 
@@ -317,6 +558,7 @@ function Home() {
 
             <section className="promotion-section">
 
+
                 <div className="promotion-box">
 
                     <div>
@@ -325,18 +567,26 @@ function Home() {
                             PAISAVASOOL SPECIAL
                         </span>
 
+
                         <h2>
+
                             DEALS THAT
                             <br />
                             MAKE SENSE
+
                         </h2>
+
 
                         <button
                             onClick={() =>
-                                navigate("/products")
+                                navigate(
+                                    "/products"
+                                )
                             }
                         >
+
                             EXPLORE DEALS →
+
                         </button>
 
                     </div>
@@ -352,23 +602,32 @@ function Home() {
                             MORE VALUE
                         </span>
 
+
                         <h2>
+
                             SHOP MORE.
                             <br />
                             SAVE MORE.
+
                         </h2>
+
 
                         <button
                             onClick={() =>
-                                navigate("/products")
+                                navigate(
+                                    "/products"
+                                )
                             }
                         >
+
                             SHOP NOW →
+
                         </button>
 
                     </div>
 
                 </div>
+
 
             </section>
 
@@ -381,6 +640,7 @@ function Home() {
 
                 <section className="home-products-section recommendations-home">
 
+
                     <div className="section-heading">
 
                         <h2>
@@ -389,17 +649,19 @@ function Home() {
 
                         <span></span>
 
-                    </div>
+                        <p className="section-subtitle">
+                            Handpicked based on your shopping activity.
+                        </p>
 
-                    <p className="section-subtitle">
-                        Handpicked based on your shopping activity.
-                    </p>
+                    </div>
 
 
                     {loadingRecommendations ? (
 
                         <div className="section-loading">
+
                             Loading recommendations...
+
                         </div>
 
                     ) : recommendations.length === 0 ? (
@@ -407,16 +669,23 @@ function Home() {
                         <div className="empty-recommendations">
 
                             <p>
+
                                 Start exploring products and we'll
                                 recommend products for you.
+
                             </p>
+
 
                             <button
                                 onClick={() =>
-                                    navigate("/products")
+                                    navigate(
+                                        "/products"
+                                    )
                                 }
                             >
+
                                 EXPLORE PRODUCTS
+
                             </button>
 
                         </div>
@@ -427,12 +696,26 @@ function Home() {
 
                             {recommendations
                                 .slice(0, 8)
-                                .map((product) => (
-                                    <ProductCard
-                                        key={product._id}
-                                        product={product}
-                                    />
-                                ))}
+                                .map(
+                                    (
+                                        product,
+                                        index
+                                    ) => (
+
+                                        <ProductCard
+                                            key={
+                                                product._id
+                                            }
+                                            product={
+                                                product
+                                            }
+                                            imageIndex={
+                                                index + 3
+                                            }
+                                        />
+
+                                    )
+                                )}
 
                         </div>
 
@@ -455,23 +738,34 @@ function Home() {
                         WHY PAY MORE?
                     </span>
 
+
                     <h2>
+
                         HAR DEAL,
                         <br />
                         FULL VALUE.
+
                     </h2>
 
+
                     <p>
+
                         Quality products. Better prices.
                         Smarter shopping.
+
                     </p>
+
 
                     <button
                         onClick={() =>
-                            navigate("/products")
+                            navigate(
+                                "/products"
+                            )
                         }
                     >
+
                         SHOP PAISAVASOOL →
+
                     </button>
 
                 </div>
@@ -491,11 +785,15 @@ function Home() {
                         “
                     </span>
 
+
                     <p>
+
                         Great products, great prices and
                         a shopping experience that actually
                         feels worth it.
+
                     </p>
+
 
                     <strong>
                         PAISAVASOOL CUSTOMER
@@ -513,6 +811,7 @@ function Home() {
             <footer className="footer">
 
                 <div className="footer-content">
+
 
                     <div className="footer-brand">
 
@@ -556,12 +855,17 @@ function Home() {
 
                     </div>
 
+
                 </div>
 
             </footer>
 
+
         </main>
+
     );
+
 }
+
 
 export default Home;

@@ -80,6 +80,73 @@ const sendOTPEmail = async (email, otp) => {
     });
 };
 // ============================================================
+// PASSWORD RESET OTP EMAIL
+// ============================================================
+
+const sendPasswordResetOTPEmail = async (email, otp) => {
+    await sendEmail({
+
+        to:
+            email,
+
+        subject:
+            "PaisaVasool Password Reset OTP",
+
+        html: `
+
+            <div style="
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: auto;
+            ">
+
+                <h2>
+                    Password Reset Request
+                </h2>
+
+                <p>
+                    We received a request to reset
+                    your PaisaVasool account password.
+                </p>
+
+                <p>
+                    Your password reset OTP is:
+                </p>
+
+                <h1>
+                    ${otp}
+                </h1>
+
+                <p>
+                    This OTP will expire in
+                    <strong>
+                        5 minutes
+                    </strong>.
+                </p>
+
+                <p>
+                    If you did not request a
+                    password reset, you can safely
+                    ignore this email.
+                </p>
+
+                <br>
+
+                <p>
+                    Regards,<br>
+                    <strong>
+                        PaisaVasool Team
+                    </strong>
+                </p>
+
+            </div>
+
+        `
+
+    });
+
+};
+// ============================================================
 // SEND LOGIN SUCCESS EMAIL
 // ============================================================
 const sendLoginSuccessEmail = async (email, name) => {
@@ -593,15 +660,29 @@ const sendPriceDropAlertEmail = async (
 // EXPORT
 // ============================================================
 module.exports = {
+
     sendOTPEmail,
+
+    sendPasswordResetOTPEmail,
+
     sendLoginSuccessEmail,
+
     sendWelcomeEmail,
+
     sendOrderPlacedEmail,
+
     sendOrderShippedEmail,
+
     sendOrderDeliveredEmail,
+
     sendReturnRequestedEmail,
+
     sendReturnApprovedEmail,
+
     sendReturnRejectedEmail,
+
     sendRefundEmail,
+
     sendPriceDropAlertEmail
+
 };

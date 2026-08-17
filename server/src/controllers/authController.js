@@ -10,6 +10,10 @@ const User =
 const PendingRegistration =
     require("../models/PendingRegistration");
 
+// Password reset model
+const PasswordReset =
+    require("../models/PasswordReset");
+
 
 // ============================================================
 // IMPORT UTILITIES
@@ -21,24 +25,24 @@ const {
     hashOTP
 } = require("../utils/generateOTP");
 
-
 // Email utilities
 const {
     sendOTPEmail,
     sendWelcomeEmail,
-    sendLoginSuccessEmail
+    sendLoginSuccessEmail,
+    sendPasswordResetOTPEmail
 } = require("../utils/sendEmail");
-
 
 // JWT utility
 const {
     generateToken
 } = require("../utils/jwt");
 
+// Crypto utility
+const crypto =
+    require("crypto");
 
 // bcrypt
-// Used to hash the password before putting it
-// into PendingRegistration.
 const bcrypt =
     require("bcryptjs");
 
@@ -51,10 +55,6 @@ const registerUser =
     async (req, res) => {
 
         try {
-
-            // ------------------------------------------------
-            // Get registration data
-            // ------------------------------------------------
 
             const {
                 name,
@@ -97,7 +97,9 @@ const registerUser =
             // Check password length
             // ------------------------------------------------
 
-            if (password.length < 6) {
+            if (
+                password.length < 6
+            ) {
 
                 return res.status(400).json({
 
@@ -110,7 +112,7 @@ const registerUser =
 
 
             // ------------------------------------------------
-            // Check whether a REAL user already exists
+            // Check whether a real user already exists
             // ------------------------------------------------
 
             const existingUser =
@@ -135,8 +137,7 @@ const registerUser =
 
 
             // ------------------------------------------------
-            // If an old pending registration exists,
-            // remove it so the user can register again.
+            // Remove old pending registration
             // ------------------------------------------------
 
             await PendingRegistration.deleteOne({
@@ -148,7 +149,7 @@ const registerUser =
 
 
             // ------------------------------------------------
-            // Hash password BEFORE storing it temporarily
+            // Hash password before temporary storage
             // ------------------------------------------------
 
             const passwordHash =
@@ -180,20 +181,15 @@ const registerUser =
 
             const expiresAt =
                 new Date(
+
                     Date.now() +
                     5 * 60 * 1000
+
                 );
 
 
             // ------------------------------------------------
-            // Create PENDING registration
-            // ------------------------------------------------
-            //
-            // IMPORTANT:
-            // No User document is created here.
-            //
-            // Therefore an unverified registration
-            // is NOT an account.
+            // Create pending registration
             // ------------------------------------------------
 
             const pendingRegistration =
@@ -226,12 +222,6 @@ const registerUser =
                 );
 
             } catch (emailError) {
-
-                // ------------------------------------------------
-                // If email sending fails, remove the pending
-                // registration so the user isn't left with
-                // a useless registration record.
-                // ------------------------------------------------
 
                 await PendingRegistration.deleteOne({
 
@@ -266,9 +256,6 @@ const registerUser =
                 message:
                     "OTP sent successfully. Please verify your email to complete registration.",
 
-                // IMPORTANT:
-                // This is NOT a User ID.
-                // It is a temporary registration ID.
                 pendingRegistrationId:
                     pendingRegistration._id
 
@@ -282,7 +269,6 @@ const registerUser =
             );
 
 
-            // Handle duplicate pending email safely
             if (
                 error.code === 11000
             ) {
@@ -318,10 +304,6 @@ const verifyEmail =
 
         try {
 
-            // ------------------------------------------------
-            // Get temporary registration ID and OTP
-            // ------------------------------------------------
-
             const {
                 pendingRegistrationId,
                 otp
@@ -329,7 +311,7 @@ const verifyEmail =
 
 
             // ------------------------------------------------
-            // Validate fields
+            // Validate input
             // ------------------------------------------------
 
             if (
@@ -357,10 +339,6 @@ const verifyEmail =
                 );
 
 
-            // ------------------------------------------------
-            // Pending registration doesn't exist
-            // ------------------------------------------------
-
             if (!pendingRegistration) {
 
                 return res.status(404).json({
@@ -382,7 +360,6 @@ const verifyEmail =
                 new Date()
             ) {
 
-                // Delete expired pending registration
                 await PendingRegistration.deleteOne({
 
                     _id:
@@ -402,7 +379,7 @@ const verifyEmail =
 
 
             // ------------------------------------------------
-            // Compare OTP
+            // Verify OTP
             // ------------------------------------------------
 
             const isOtpCorrect =
@@ -423,8 +400,7 @@ const verifyEmail =
 
 
             // ------------------------------------------------
-            // Check again whether the email was registered
-            // while this verification was pending.
+            // Check whether user already exists
             // ------------------------------------------------
 
             const existingUser =
@@ -457,12 +433,7 @@ const verifyEmail =
 
 
             // ------------------------------------------------
-            // Create REAL USER
-            // ------------------------------------------------
-            //
-            // The password is already bcrypt hashed.
-            //
-            // We tell the User model not to hash it again.
+            // Create real user
             // ------------------------------------------------
 
             const user =
@@ -489,11 +460,14 @@ const verifyEmail =
                 });
 
 
-            // Tell User.js that this password is already hashed.
-            user.$locals.passwordAlreadyHashed = true;
+            // ------------------------------------------------
+            // Prevent password from being hashed twice
+            // ------------------------------------------------
+
+            user.$locals.passwordAlreadyHashed =
+                true;
 
 
-            // Save actual User
             await user.save();
 
 
@@ -525,9 +499,6 @@ const verifyEmail =
 
             } catch (emailError) {
 
-                // Welcome email failure should NOT
-                // invalidate successful registration.
-
                 console.error(
 
                     "Welcome email error:",
@@ -540,7 +511,7 @@ const verifyEmail =
 
 
             // ------------------------------------------------
-            // Successful response
+            // Response
             // ------------------------------------------------
 
             return res.status(200).json({
@@ -582,10 +553,6 @@ const loginUser =
 
         try {
 
-            // ------------------------------------------------
-            // Get login information
-            // ------------------------------------------------
-
             const {
                 email,
                 password
@@ -593,7 +560,7 @@ const loginUser =
 
 
             // ------------------------------------------------
-            // Validate required fields
+            // Validate input
             // ------------------------------------------------
 
             if (
@@ -687,6 +654,24 @@ const loginUser =
 
 
             // ------------------------------------------------
+            // Check account status
+            // ------------------------------------------------
+
+            if (
+                !user.isActive
+            ) {
+
+                return res.status(403).json({
+
+                    message:
+                        "Your account is inactive. Please contact support."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
             // Generate JWT
             // ------------------------------------------------
 
@@ -722,7 +707,7 @@ const loginUser =
 
 
             // ------------------------------------------------
-            // Successful login response
+            // Response
             // ------------------------------------------------
 
             return res.status(200).json({
@@ -774,6 +759,661 @@ const loginUser =
 
 
 // ============================================================
+// FORGOT PASSWORD - SEND OTP
+// ============================================================
+
+const forgotPassword =
+    async (req, res) => {
+
+        try {
+
+            const {
+                email
+            } = req.body;
+
+
+            // ------------------------------------------------
+            // Validate email
+            // ------------------------------------------------
+
+            if (!email) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Email is required"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Normalize email
+            // ------------------------------------------------
+
+            const normalizedEmail =
+                email
+                    .trim()
+                    .toLowerCase();
+
+
+            // ------------------------------------------------
+            // Find user
+            // ------------------------------------------------
+
+            const user =
+                await User.findOne({
+
+                    email:
+                        normalizedEmail
+
+                });
+
+
+            // ------------------------------------------------
+            // Do not reveal whether email exists
+            // ------------------------------------------------
+
+            if (!user) {
+
+                return res.status(200).json({
+
+                    message:
+                        "If an account exists with this email, a password reset OTP has been sent."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Remove previous reset requests
+            // ------------------------------------------------
+
+            await PasswordReset.deleteMany({
+
+                email:
+                    normalizedEmail
+
+            });
+
+
+            // ------------------------------------------------
+            // Generate OTP
+            // ------------------------------------------------
+
+            const otp =
+                generateOTP();
+
+
+            // ------------------------------------------------
+            // Hash OTP
+            // ------------------------------------------------
+
+            const otpHash =
+                hashOTP(otp);
+
+
+            // ------------------------------------------------
+            // OTP expires after 5 minutes
+            // ------------------------------------------------
+
+            const expiresAt =
+                new Date(
+
+                    Date.now() +
+                    5 * 60 * 1000
+
+                );
+
+
+            // ------------------------------------------------
+            // Create password reset request
+            // ------------------------------------------------
+
+            await PasswordReset.create({
+
+                // IMPORTANT:
+                // PasswordReset schema uses "user",
+                // not "userId".
+
+                user:
+                    user._id,
+
+                email:
+                    normalizedEmail,
+
+                otpHash,
+
+                expiresAt,
+
+                otpVerified:
+                    false,
+
+                verifiedAt:
+                    null,
+
+                resetTokenHash:
+                    null,
+
+                resetTokenExpiresAt:
+                    null
+
+            });
+
+
+            // ------------------------------------------------
+            // Send password reset OTP email
+            // ------------------------------------------------
+
+            try {
+
+                await sendPasswordResetOTPEmail(
+
+                    normalizedEmail,
+
+                    otp,
+
+                    user.name
+
+                );
+
+            } catch (emailError) {
+
+                await PasswordReset.deleteMany({
+
+                    email:
+                        normalizedEmail
+
+                });
+
+
+                console.error(
+
+                    "Password reset email error:",
+
+                    emailError.message
+
+                );
+
+
+                return res.status(500).json({
+
+                    message:
+                        "Unable to send password reset email. Please try again."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Response
+            // ------------------------------------------------
+
+            return res.status(200).json({
+
+                message:
+                    "If an account exists with this email, a password reset OTP has been sent."
+
+            });
+
+        } catch (error) {
+
+            console.error(
+
+                "Forgot password error:",
+
+                error.message
+
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Server error"
+
+            });
+
+        }
+
+    };
+
+
+// ============================================================
+// VERIFY PASSWORD RESET OTP
+// ============================================================
+
+const verifyPasswordResetOtp =
+    async (req, res) => {
+
+        try {
+
+            const {
+                email,
+                otp
+            } = req.body;
+
+
+            // ------------------------------------------------
+            // Validate input
+            // ------------------------------------------------
+
+            if (
+                !email ||
+                !otp
+            ) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Email and OTP are required"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Normalize email
+            // ------------------------------------------------
+
+            const normalizedEmail =
+                email
+                    .trim()
+                    .toLowerCase();
+
+
+            // ------------------------------------------------
+            // Find password reset request
+            // ------------------------------------------------
+
+            const resetRequest =
+                await PasswordReset.findOne({
+
+                    email:
+                        normalizedEmail
+
+                });
+
+
+            if (!resetRequest) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Password reset request not found or expired."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Check OTP expiration
+            // ------------------------------------------------
+
+            if (
+                resetRequest.expiresAt <
+                new Date()
+            ) {
+
+                await PasswordReset.deleteOne({
+
+                    _id:
+                        resetRequest._id
+
+                });
+
+
+                return res.status(400).json({
+
+                    message:
+                        "OTP has expired. Please request a new OTP."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Verify OTP
+            // ------------------------------------------------
+
+            const isOtpCorrect =
+                hashOTP(otp) ===
+                resetRequest.otpHash;
+
+
+            if (!isOtpCorrect) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Invalid OTP"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Generate secure reset token
+            // ------------------------------------------------
+
+            const resetToken =
+                crypto
+                    .randomBytes(32)
+                    .toString("hex");
+
+
+            // ------------------------------------------------
+            // Hash reset token before database storage
+            // ------------------------------------------------
+
+            const resetTokenHash =
+                crypto
+                    .createHash("sha256")
+                    .update(resetToken)
+                    .digest("hex");
+
+
+            // ------------------------------------------------
+            // Save verified reset state
+            // ------------------------------------------------
+
+            resetRequest.resetTokenHash =
+                resetTokenHash;
+
+
+            resetRequest.resetTokenExpiresAt =
+                new Date(
+
+                    Date.now() +
+                    10 * 60 * 1000
+
+                );
+
+
+            resetRequest.otpVerified =
+                true;
+
+
+            resetRequest.verifiedAt =
+                new Date();
+
+
+            await resetRequest.save();
+
+
+            // ------------------------------------------------
+            // Response
+            // ------------------------------------------------
+
+            return res.status(200).json({
+
+                message:
+                    "OTP verified successfully. You can now create a new password.",
+
+                resetToken
+
+            });
+
+        } catch (error) {
+
+            console.error(
+
+                "Password reset OTP verification error:",
+
+                error.message
+
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Server error"
+
+            });
+
+        }
+
+    };
+
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+const resetPassword =
+    async (req, res) => {
+
+        try {
+
+            const {
+                email,
+                resetToken,
+                newPassword
+            } = req.body;
+
+
+            // ------------------------------------------------
+            // Validate input
+            // ------------------------------------------------
+
+            if (
+                !email ||
+                !resetToken ||
+                !newPassword
+            ) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Email, reset token and new password are required"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Validate password length
+            // ------------------------------------------------
+
+            if (
+                newPassword.length < 6
+            ) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Password must be at least 6 characters long"
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Normalize email
+            // ------------------------------------------------
+
+            const normalizedEmail =
+                email
+                    .trim()
+                    .toLowerCase();
+
+
+            // ------------------------------------------------
+            // Hash reset token
+            // ------------------------------------------------
+
+            const resetTokenHash =
+                crypto
+                    .createHash("sha256")
+                    .update(resetToken)
+                    .digest("hex");
+
+
+            // ------------------------------------------------
+            // Find verified reset request
+            // ------------------------------------------------
+
+            const resetRequest =
+                await PasswordReset.findOne({
+
+                    email:
+                        normalizedEmail,
+
+                    resetTokenHash,
+
+                    otpVerified:
+                        true
+
+                });
+
+
+            if (!resetRequest) {
+
+                return res.status(400).json({
+
+                    message:
+                        "Invalid or expired password reset session."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Check reset-token expiration
+            // ------------------------------------------------
+
+            if (
+                !resetRequest.resetTokenExpiresAt ||
+                resetRequest.resetTokenExpiresAt <
+                new Date()
+            ) {
+
+                await PasswordReset.deleteOne({
+
+                    _id:
+                        resetRequest._id
+
+                });
+
+
+                return res.status(400).json({
+
+                    message:
+                        "Password reset session has expired. Please request a new OTP."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Find user
+            // ------------------------------------------------
+
+            const user =
+                await User.findById(
+
+                    resetRequest.user
+
+                );
+
+
+            if (!user) {
+
+                await PasswordReset.deleteOne({
+
+                    _id:
+                        resetRequest._id
+
+                });
+
+
+                return res.status(404).json({
+
+                    message:
+                        "User account not found."
+
+                });
+
+            }
+
+
+            // ------------------------------------------------
+            // Update password
+            // ------------------------------------------------
+
+            user.password =
+                newPassword;
+
+
+            // ------------------------------------------------
+            // Save user
+            //
+            // The User model's password middleware should
+            // hash the new password before storing it.
+            // ------------------------------------------------
+
+            await user.save();
+
+
+            // ------------------------------------------------
+            // Delete used reset request
+            // ------------------------------------------------
+
+            await PasswordReset.deleteOne({
+
+                _id:
+                    resetRequest._id
+
+            });
+
+
+            // ------------------------------------------------
+            // Response
+            // ------------------------------------------------
+
+            return res.status(200).json({
+
+                message:
+                    "Password reset successfully. You can now login with your new password."
+
+            });
+
+        } catch (error) {
+
+            console.error(
+
+                "Reset password error:",
+
+                error.message
+
+            );
+
+
+            return res.status(500).json({
+
+                message:
+                    "Server error"
+
+            });
+
+        }
+
+    };
+
+
+// ============================================================
 // EXPORT CONTROLLERS
 // ============================================================
 
@@ -783,6 +1423,12 @@ module.exports = {
 
     verifyEmail,
 
-    loginUser
+    loginUser,
+
+    forgotPassword,
+
+    verifyPasswordResetOtp,
+
+    resetPassword
 
 };

@@ -1,18 +1,140 @@
-// Import Express
-const express = require("express");
-// Create an Express router
-const router = express.Router();
-// Import the register controller
-const { registerUser, verifyEmail, loginUser } = require("../controllers/authController");
-const validate = require("../validators/validationMiddleware");
-const { registerSchema, loginSchema } = require("../validators/authValidator");
-// Register a new user
-// POST /api/auth/register
-router.post("/register", validate(registerSchema), registerUser);
-// Verify user's email using OTP
-router.post("/verify-email", verifyEmail);
-// Login a user
-// POST /api/auth/login
-router.post("/login", validate(loginSchema), loginUser);
-// Export the router
-module.exports = router;
+// ============================================================
+// IMPORT EXPRESS
+// ============================================================
+
+const express =
+    require("express");
+
+
+// ============================================================
+// CREATE ROUTER
+// ============================================================
+
+const router =
+    express.Router();
+
+
+// ============================================================
+// IMPORT CONTROLLERS
+// ============================================================
+
+const {
+
+    registerUser,
+
+    verifyEmail,
+
+    loginUser,
+
+    forgotPassword,
+
+    verifyPasswordResetOtp,
+
+    resetPassword
+
+} =
+    require("../controllers/authController");
+
+
+// ============================================================
+// VALIDATION
+// ============================================================
+
+const validate =
+    require("../validators/validationMiddleware");
+
+const {
+    registerSchema,
+    loginSchema
+} =
+    require("../validators/authValidator");
+
+
+// ============================================================
+// REGISTER
+// ============================================================
+
+router.post(
+
+    "/register",
+
+    validate(registerSchema),
+
+    registerUser
+
+);
+
+
+// ============================================================
+// VERIFY EMAIL
+// ============================================================
+
+router.post(
+
+    "/verify-email",
+
+    verifyEmail
+
+);
+
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+router.post(
+
+    "/login",
+
+    validate(loginSchema),
+
+    loginUser
+
+);
+
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+router.post(
+
+    "/forgot-password",
+
+    forgotPassword
+
+);
+
+
+// ============================================================
+// VERIFY PASSWORD RESET OTP
+// ============================================================
+
+router.post(
+
+    "/verify-password-reset-otp",
+
+    verifyPasswordResetOtp
+
+);
+
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+router.post(
+
+    "/reset-password",
+
+    resetPassword
+
+);
+
+
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports =
+    router;
