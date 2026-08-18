@@ -1,6 +1,5 @@
 // ============================================================
 // ORDER SAFETY CONTROLLER
-// Safe cancellation, refunds and order-status transitions.
 // ============================================================
 
 const Order = require("../models/Order");
@@ -14,7 +13,19 @@ const {
 
 
 const restoreOrderStock = async (order) => {
-    if (!order.inventoryReserved) return;
+    // New orders explicitly track reservation state. For legacy orders,
+    // infer whether stock was already deducted from payment method/status.
+    const shouldRestore =
+        order.inventoryReserved === true ||
+        (
+            order.inventoryReserved === undefined &&
+            (
+                order.paymentMethod === "cod" ||
+                order.paymentStatus === "paid"
+            )
+        );
+
+    if (!shouldRestore) return;
 
     for (const item of order.items) {
         await Product.findByIdAndUpdate(
@@ -45,8 +56,7 @@ const initiateRefund = async (order, reason, receiptPrefix) => {
         throw error;
     }
 
-    const refundAmount =
-        Math.round((order.totalAmount || 0) * 100);
+    const refundAmount = Math.round((order.totalAmount || 0) * 100);
 
     if (refundAmount <= 0) {
         const error = new Error("Invalid refund amount");
@@ -61,9 +71,7 @@ const initiateRefund = async (order, reason, receiptPrefix) => {
             refundStatus: "none",
             razorpayRefundId: null
         },
-        {
-            $set: { refundStatus: "pending" }
-        },
+        { $set: { refundStatus: "pending" } },
         { new: true }
     );
 
@@ -82,24 +90,19 @@ const initiateRefund = async (order, reason, receiptPrefix) => {
                 amount: refundAmount,
                 speed: "normal",
                 notes: {
-                    paisaVasoolOrderId:
-                        claimedOrder._id.toString(),
+                    paisaVasoolOrderId: claimedOrder._id.toString(),
                     reason
                 },
-                receipt:
-                    `${receiptPrefix}_${claimedOrder._id}`
+                receipt: `${receiptPrefix}_${claimedOrder._id}`
             }
         );
 
         claimedOrder.razorpayRefundId = refund.id;
         claimedOrder.refundAmount = refundAmount / 100;
         claimedOrder.refundStatus =
-            refund.status === "processed"
-                ? "processed"
-                : "initiated";
+            refund.status === "processed" ? "processed" : "initiated";
 
         await claimedOrder.save();
-
         return { order: claimedOrder, refund };
 
     } catch (error) {
@@ -129,9 +132,6 @@ const cancelOrderSafely = async (req, res) => {
             });
         }
 
-        // A paid online order must obtain a refund before cancellation.
-        // If the refund fails, we leave the order untouched and therefore
-        // do not restore inventory or create an unpaid/cancelled state.
         let refund = null;
 
         if (
@@ -168,11 +168,7 @@ const cancelOrderSafely = async (req, res) => {
                 user: req.user._id,
                 status: { $in: ["pending", "confirmed"] }
             },
-            {
-                $set: {
-                    status: "cancelled"
-                }
-            },
+            { $set: { status: "cancelled" } },
             { new: true }
         );
 
@@ -201,11 +197,9 @@ const cancelOrderSafely = async (req, res) => {
 
     } catch (error) {
         console.error("Cancel order error:", error.message);
-
         if (error.name === "CastError") {
             return res.status(400).json({ message: "Invalid order ID" });
         }
-
         return res.status(500).json({ message: "Server error" });
     }
 };
@@ -261,8 +255,6 @@ const updateOrderStatusSafely = async (req, res) => {
             });
         }
 
-        // A failed refund is an explicit financial exception. It must be
-        // resolved before an admin can fulfil or cancel the order normally.
         if (
             order.refundStatus === "failed" &&
             ["confirmed", "shipped", "delivered"].includes(status)
@@ -369,15 +361,10 @@ const updateOrderStatusSafely = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "Update order status error:",
-            error.message
-        );
-
+        console.error("Update order status error:", error.message);
         if (error.name === "CastError") {
             return res.status(400).json({ message: "Invalid order ID" });
         }
-
         return res.status(500).json({ message: "Server error" });
     }
 };
