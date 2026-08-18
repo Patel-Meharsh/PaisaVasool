@@ -1,25 +1,18 @@
 // Import mongoose
 const mongoose = require("mongoose");
 
+
 // ============================================================
 // PRICE ALERT SCHEMA
 // ============================================================
 
 const priceAlertSchema = new mongoose.Schema(
     {
-        // ----------------------------------------------------
-        // User who wants the price alert
-        // ----------------------------------------------------
-
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true
         },
-
-        // ----------------------------------------------------
-        // Product being watched
-        // ----------------------------------------------------
 
         product: {
             type: mongoose.Schema.Types.ObjectId,
@@ -27,19 +20,11 @@ const priceAlertSchema = new mongoose.Schema(
             required: true
         },
 
-        // ----------------------------------------------------
-        // Price at which the user wants to be notified
-        // ----------------------------------------------------
-
         targetPrice: {
             type: Number,
             required: true,
             min: 0
         },
-
-        // ----------------------------------------------------
-        // Current product price when alert was created
-        // ----------------------------------------------------
 
         currentPrice: {
             type: Number,
@@ -47,25 +32,16 @@ const priceAlertSchema = new mongoose.Schema(
             min: 0
         },
 
-        // ----------------------------------------------------
-        // Indicates whether the alert has already been sent
-        // ----------------------------------------------------
-
         isNotified: {
             type: Boolean,
             default: false
         },
-
-        // ----------------------------------------------------
-        // Date when notification was sent
-        // ----------------------------------------------------
 
         notifiedAt: {
             type: Date,
             default: null
         }
     },
-
     {
         timestamps: true
     }
@@ -73,33 +49,31 @@ const priceAlertSchema = new mongoose.Schema(
 
 
 // ============================================================
-// PREVENT DUPLICATE ACTIVE ALERTS
+// DATABASE-LEVEL DUPLICATE PROTECTION
 // ============================================================
 
-// A user should not have multiple active alerts
-// for the same product.
-
+// Application-level findOne checks are not sufficient under
+// concurrent requests. This partial unique index guarantees that
+// a user can have only one active (not-yet-notified) alert for a
+// product, while still allowing a new alert after notification.
 priceAlertSchema.index(
     {
         user: 1,
-        product: 1,
-        isNotified: 1
+        product: 1
+    },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isNotified: false
+        }
     }
 );
 
-
-// ============================================================
-// CREATE MODEL
-// ============================================================
 
 const PriceAlert = mongoose.model(
     "PriceAlert",
     priceAlertSchema
 );
 
-
-// ============================================================
-// EXPORT MODEL
-// ============================================================
 
 module.exports = PriceAlert;
