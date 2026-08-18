@@ -30,6 +30,7 @@ const productRoutes = require("./src/routes/productRoutes");
 const cartRoutes = require("./src/routes/cartRoutes");
 const orderRoutes = require("./src/routes/orderRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
+const paymentWebhookRoutes = require("./src/routes/paymentWebhookRoutes");
 const returnRoutes = require("./src/routes/returnRoutes");
 const adminReturnRoutes = require("./src/routes/adminReturnRoutes");
 const priceAlertRoutes = require("./src/routes/priceAlertRoutes");
@@ -73,6 +74,18 @@ app.use(
     cors({
         origin: clientUrl
     })
+);
+
+
+// ============================================================
+// RAZORPAY WEBHOOK
+// ============================================================
+// This MUST be mounted before express.json() so Razorpay's
+// signature can be verified against the exact raw request body.
+
+app.use(
+    "/api/webhooks",
+    paymentWebhookRoutes
 );
 
 
