@@ -1,5 +1,8 @@
 // ============================================================
 // PAYMENT CONTROLLER
+// Razorpay order creation and payment verification.
+// Inventory is reserved during checkout, so payment verification
+// never decrements stock a second time.
 // ============================================================
 
 const mongoose = require("mongoose");
@@ -17,6 +20,91 @@ const {
 } = require("../utils/sendEmail");
 
 
+const releaseExpiredOrderReservation = async (order) => {
+    const now = new Date();
+
+    const released = await Order.findOneAndUpdate(
+        {
+            _id: order._id,
+            status: "pending",
+            inventoryReserved: true,
+            inventoryReservedUntil: { $lte: now }
+        },
+        {
+            $set: {
+                inventoryReserved: false,
+                inventoryReleasedAt: now,
+                inventoryReservedUntil: null,
+                status: "cancelled",
+                paymentStatus: "failed"
+            }
+        },
+        { new: true }
+    );
+
+    if (!released) return false;
+
+    for (const item of released.items) {
+        await Product.findByIdAndUpdate(
+            item.product,
+            { $inc: { stock: item.quantity } }
+        );
+    }
+
+    return true;
+};
+
+
+const refundCapturedPayment = async (
+    order,
+    razorpayPaymentId,
+    amountInPaise,
+    reason
+) => {
+    try {
+        const refund = await razorpay.payments.refund(
+            razorpayPaymentId,
+            {
+                amount: amountInPaise,
+                notes: {
+                    paisaVasoolOrderId: order._id.toString(),
+                    reason
+                },
+                receipt: `AUTO_REFUND_${order._id}`
+            }
+        );
+
+        order.razorpayPaymentId = razorpayPaymentId;
+        order.refundAmount = amountInPaise / 100;
+        order.razorpayRefundId = refund.id;
+        order.refundStatus =
+            refund.status === "processed"
+                ? "processed"
+                : "initiated";
+        order.paymentStatus =
+            refund.status === "processed"
+                ? "refunded"
+                : "paid";
+        order.status = "cancelled";
+        order.paymentProcessingAt = null;
+        await order.save();
+
+        return refund;
+
+    } catch (error) {
+        // Payment was captured but automatic refund failed. Keep the
+        // financial exception explicit and block fulfilment elsewhere.
+        order.razorpayPaymentId = razorpayPaymentId;
+        order.refundAmount = amountInPaise / 100;
+        order.paymentStatus = "paid";
+        order.refundStatus = "failed";
+        order.paymentProcessingAt = null;
+        await order.save();
+        throw error;
+    }
+};
+
+
 // ============================================================
 // CREATE RAZORPAY ORDER
 // ============================================================
@@ -25,33 +113,24 @@ const createRazorpayOrder = async (req, res) => {
     try {
         const { orderId } = req.body;
 
-        if (!orderId) {
+        if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
             return res.status(400).json({
-                message: "Order ID is required"
+                message: "Valid order ID is required"
             });
         }
 
-        if (!mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                message: "Invalid order ID"
-            });
-        }
-
-        const order = await Order.findOne({
+        let order = await Order.findOne({
             _id: orderId,
             user: req.user._id
         });
 
         if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
+            return res.status(404).json({ message: "Order not found" });
         }
 
         if (order.paymentMethod !== "online") {
             return res.status(400).json({
-                message:
-                    "This order is not configured for online payment"
+                message: "This order is not configured for online payment"
             });
         }
 
@@ -67,24 +146,37 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
-        if (order.totalAmount <= 0) {
-            return res.status(400).json({
-                message: "Invalid order amount"
+        if (!order.inventoryReserved) {
+            return res.status(409).json({
+                message:
+                    "Inventory is no longer reserved for this order. Please create a new order."
             });
+        }
+
+        if (
+            order.inventoryReservedUntil &&
+            order.inventoryReservedUntil <= new Date()
+        ) {
+            await releaseExpiredOrderReservation(order);
+            return res.status(409).json({
+                message:
+                    "The payment reservation has expired. Please create a new order."
+            });
+        }
+
+        if (order.totalAmount <= 0) {
+            return res.status(400).json({ message: "Invalid order amount" });
         }
 
         if (order.razorpayOrderId) {
             const existingRazorpayOrder =
-                await razorpay.orders.fetch(
-                    order.razorpayOrderId
-                );
+                await razorpay.orders.fetch(order.razorpayOrderId);
 
             const expectedAmount =
                 Math.round(order.totalAmount * 100);
 
             if (
-                Number(existingRazorpayOrder.amount) !==
-                    expectedAmount ||
+                Number(existingRazorpayOrder.amount) !== expectedAmount ||
                 existingRazorpayOrder.currency !== "INR"
             ) {
                 return res.status(409).json({
@@ -103,30 +195,22 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
-        const amountInPaise =
-            Math.round(order.totalAmount * 100);
-
-        const razorpayOrder =
-            await razorpay.orders.create({
-                amount: amountInPaise,
-                currency: "INR",
-                receipt: `PV_${order._id}`,
-                notes: {
-                    paisaVasoolOrderId:
-                        order._id.toString(),
-                    userId:
-                        req.user._id.toString()
-                }
-            });
+        const razorpayOrder = await razorpay.orders.create({
+            amount: Math.round(order.totalAmount * 100),
+            currency: "INR",
+            receipt: `PV_${order._id}`,
+            notes: {
+                paisaVasoolOrderId: order._id.toString(),
+                userId: req.user._id.toString()
+            }
+        });
 
         order.razorpayOrderId = razorpayOrder.id;
         order.paymentStatus = "pending";
-
         await order.save();
 
         return res.status(201).json({
-            message:
-                "Razorpay order created successfully",
+            message: "Razorpay order created successfully",
             razorpayOrder: {
                 id: razorpayOrder.id,
                 amount: razorpayOrder.amount,
@@ -135,11 +219,7 @@ const createRazorpayOrder = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "Create Razorpay order error:",
-            error.message
-        );
-
+        console.error("Create Razorpay order error:", error.message);
         return res.status(500).json({
             message: "Failed to create payment order"
         });
@@ -153,7 +233,6 @@ const createRazorpayOrder = async (req, res) => {
 
 const verifyRazorpayPayment = async (req, res) => {
     let order = null;
-    const updatedProducts = [];
 
     try {
         const {
@@ -170,25 +249,24 @@ const verifyRazorpayPayment = async (req, res) => {
             !razorpaySignature
         ) {
             return res.status(400).json({
-                message:
-                    "Payment verification data is incomplete"
+                message: "Payment verification data is incomplete"
             });
         }
 
         if (!mongoose.Types.ObjectId.isValid(orderId)) {
-            return res.status(400).json({
-                message: "Invalid order ID"
-            });
+            return res.status(400).json({ message: "Invalid order ID" });
         }
 
-        // Atomically claim the order for payment finalization.
         order = await Order.findOneAndUpdate(
             {
                 _id: orderId,
                 user: req.user._id,
                 razorpayOrderId,
                 paymentMethod: "online",
-                paymentStatus: "pending"
+                paymentStatus: "pending",
+                status: "pending",
+                inventoryReserved: true,
+                inventoryReservedUntil: { $gt: new Date() }
             },
             {
                 $set: {
@@ -196,9 +274,7 @@ const verifyRazorpayPayment = async (req, res) => {
                     paymentProcessingAt: new Date()
                 }
             },
-            {
-                new: true
-            }
+            { new: true }
         );
 
         if (!order) {
@@ -208,9 +284,7 @@ const verifyRazorpayPayment = async (req, res) => {
             });
 
             if (!existingOrder) {
-                return res.status(404).json({
-                    message: "Order not found"
-                });
+                return res.status(404).json({ message: "Order not found" });
             }
 
             if (existingOrder.paymentStatus === "paid") {
@@ -218,212 +292,204 @@ const verifyRazorpayPayment = async (req, res) => {
                     message: "Payment already verified",
                     payment: {
                         orderId: existingOrder._id,
-                        paymentStatus:
-                            existingOrder.paymentStatus
+                        paymentStatus: existingOrder.paymentStatus
                     }
                 });
             }
 
-            if (existingOrder.paymentStatus === "processing") {
+            if (
+                existingOrder.paymentStatus === "processing" &&
+                existingOrder.paymentProcessingAt &&
+                Date.now() - existingOrder.paymentProcessingAt.getTime() < 2 * 60 * 1000
+            ) {
                 return res.status(409).json({
                     message:
                         "Payment verification is already being processed. Please wait."
                 });
             }
 
-            return res.status(400).json({
+            if (
+                existingOrder.inventoryReservedUntil &&
+                existingOrder.inventoryReservedUntil <= new Date()
+            ) {
+                await releaseExpiredOrderReservation(existingOrder);
+            }
+
+            return res.status(409).json({
                 message:
-                    "This payment cannot be verified in its current state"
+                    "This payment reservation is no longer valid. Please create a new order."
             });
         }
 
-        const isSignatureValid =
-            validatePaymentVerification(
-                {
-                    order_id: order.razorpayOrderId,
-                    payment_id: razorpayPaymentId
-                },
-                razorpaySignature,
-                process.env.RAZORPAY_KEY_SECRET
-            );
+        const isSignatureValid = validatePaymentVerification(
+            {
+                order_id: order.razorpayOrderId,
+                payment_id: razorpayPaymentId
+            },
+            razorpaySignature,
+            process.env.RAZORPAY_KEY_SECRET
+        );
 
         if (!isSignatureValid) {
             order.paymentStatus = "failed";
             order.paymentProcessingAt = null;
             await order.save();
+            await releaseExpiredOrderReservation({ _id: order._id });
 
             return res.status(400).json({
                 message: "Payment verification failed"
             });
         }
 
-        const payment =
-            await razorpay.payments.fetch(
-                razorpayPaymentId
-            );
+        const payment = await razorpay.payments.fetch(
+            razorpayPaymentId
+        );
 
         const expectedAmount =
             Math.round(order.totalAmount * 100);
 
-        if (
-            payment.order_id !== order.razorpayOrderId ||
-            Number(payment.amount) !== expectedAmount ||
-            payment.currency !== "INR" ||
-            payment.status !== "captured"
-        ) {
-            order.paymentStatus = "failed";
-            order.paymentProcessingAt = null;
-            await order.save();
+        const detailsMatch =
+            payment.order_id === order.razorpayOrderId &&
+            Number(payment.amount) === expectedAmount &&
+            payment.currency === "INR" &&
+            payment.status === "captured";
 
-            return res.status(400).json({
-                message:
-                    "Payment details do not match the order"
-            });
-        }
-
-        for (const item of order.items) {
-            const updatedProduct =
-                await Product.findOneAndUpdate(
-                    {
-                        _id: item.product,
-                        isActive: true,
-                        stock: {
-                            $gte: item.quantity
-                        }
-                    },
-                    {
-                        $inc: {
-                            stock: -item.quantity
-                        }
-                    },
-                    {
-                        new: true
-                    }
-                );
-
-            if (!updatedProduct) {
-                for (const updatedItem of updatedProducts) {
-                    await Product.findByIdAndUpdate(
-                        updatedItem.productId,
-                        {
-                            $inc: {
-                                stock: updatedItem.quantity
-                            }
-                        }
-                    );
-                }
-
-                updatedProducts.length = 0;
-
+        if (!detailsMatch) {
+            if (payment.status === "captured") {
                 try {
-                    const refund =
-                        await razorpay.payments.refund(
-                            razorpayPaymentId,
-                            {
-                                amount: expectedAmount,
-                                notes: {
-                                    paisaVasoolOrderId:
-                                        order._id.toString(),
-                                    reason:
-                                        "Insufficient stock after payment"
-                                }
+                    await refundCapturedPayment(
+                        order,
+                        razorpayPaymentId,
+                        Number(payment.amount) || expectedAmount,
+                        "Payment details did not match PaisaVasool order"
+                    );
+
+                    // Release inventory only after the financial exception
+                    // has been safely moved to a refund state.
+                    const released = await Order.findOneAndUpdate(
+                        {
+                            _id: order._id,
+                            inventoryReserved: true
+                        },
+                        {
+                            $set: {
+                                inventoryReserved: false,
+                                inventoryReleasedAt: new Date(),
+                                inventoryReservedUntil: null
                             }
-                        );
+                        },
+                        { new: true }
+                    );
 
-                    order.razorpayPaymentId =
-                        razorpayPaymentId;
-                    order.razorpaySignature =
-                        razorpaySignature;
-                    order.razorpayRefundId =
-                        refund.id;
-                    order.paymentStatus =
-                        "refunded";
-                    order.refundStatus =
-                        refund.status === "processed"
-                            ? "processed"
-                            : "initiated";
-                    order.status = "cancelled";
-                    order.paymentProcessingAt = null;
-
-                    await order.save();
-
-                    return res.status(409).json({
-                        message:
-                            `Payment was received, but stock for ${item.name} was unavailable. The payment has been refunded.`
-                    });
-
+                    if (released) {
+                        for (const item of released.items) {
+                            await Product.findByIdAndUpdate(
+                                item.product,
+                                { $inc: { stock: item.quantity } }
+                            );
+                        }
+                    }
                 } catch (refundError) {
-                    order.razorpayPaymentId =
-                        razorpayPaymentId;
-                    order.razorpaySignature =
-                        razorpaySignature;
-                    order.paymentStatus = "paid";
-                    order.refundStatus = "failed";
-                    order.paymentProcessingAt = null;
-
-                    await order.save();
+                    console.error(
+                        "Automatic mismatch refund error:",
+                        refundError.message
+                    );
 
                     return res.status(502).json({
                         message:
-                            "Payment was received but stock could not be reserved. A refund could not be completed automatically and requires review."
+                            "Payment was captured but could not be reconciled automatically. The order is blocked for financial review."
                     });
+                }
+            } else {
+                order.paymentStatus = "failed";
+                order.paymentProcessingAt = null;
+                await order.save();
+
+                const released = await Order.findOneAndUpdate(
+                    { _id: order._id, inventoryReserved: true },
+                    {
+                        $set: {
+                            inventoryReserved: false,
+                            inventoryReleasedAt: new Date(),
+                            inventoryReservedUntil: null,
+                            status: "cancelled"
+                        }
+                    },
+                    { new: true }
+                );
+
+                if (released) {
+                    for (const item of released.items) {
+                        await Product.findByIdAndUpdate(
+                            item.product,
+                            { $inc: { stock: item.quantity } }
+                        );
+                    }
                 }
             }
 
-            updatedProducts.push({
-                productId: item.product,
-                quantity: item.quantity
+            return res.status(400).json({
+                message: "Payment details do not match the order"
             });
         }
 
-        const cart = await Cart.findOne({
-            user: req.user._id
-        });
+        // Inventory was already reserved during checkout. Verify that it
+        // still belongs to this order and then finalize payment atomically.
+        const finalized = await Order.findOneAndUpdate(
+            {
+                _id: order._id,
+                paymentStatus: "processing",
+                inventoryReserved: true,
+                status: "pending"
+            },
+            {
+                $set: {
+                    razorpayPaymentId,
+                    razorpaySignature,
+                    paymentStatus: "paid",
+                    status: "confirmed",
+                    paymentProcessingAt: null,
+                    inventoryReservedUntil: null
+                }
+            },
+            { new: true }
+        );
+
+        if (!finalized) {
+            return res.status(409).json({
+                message:
+                    "Payment finalization state changed. Please check your order before retrying."
+            });
+        }
+
+        const cart = await Cart.findOne({ user: req.user._id });
 
         if (cart) {
-            const orderSnapshot = order.items
+            const orderSnapshot = finalized.items
                 .map(item => ({
                     product: item.product.toString(),
                     quantity: item.quantity
                 }))
-                .sort((a, b) =>
-                    a.product.localeCompare(b.product)
-                );
+                .sort((a, b) => a.product.localeCompare(b.product));
 
             const cartSnapshot = cart.items
                 .map(item => ({
                     product: item.product.toString(),
                     quantity: item.quantity
                 }))
-                .sort((a, b) =>
-                    a.product.localeCompare(b.product)
-                );
+                .sort((a, b) => a.product.localeCompare(b.product));
 
-            const cartMatchesOrder =
-                JSON.stringify(orderSnapshot) ===
-                JSON.stringify(cartSnapshot);
-
-            if (cartMatchesOrder) {
+            if (JSON.stringify(orderSnapshot) === JSON.stringify(cartSnapshot)) {
                 cart.items = [];
                 await cart.save();
             }
         }
 
-        order.razorpayPaymentId =
-            razorpayPaymentId;
-        order.razorpaySignature =
-            razorpaySignature;
-        order.paymentStatus = "paid";
-        order.status = "confirmed";
-        order.paymentProcessingAt = null;
-
-        await order.save();
-
         try {
             await sendOrderPlacedEmail(
                 req.user.email,
                 req.user.name,
-                order
+                finalized
             );
         } catch (emailError) {
             console.error(
@@ -436,64 +502,33 @@ const verifyRazorpayPayment = async (req, res) => {
             message:
                 "Payment verified and order confirmed successfully",
             payment: {
-                orderId: order._id,
-                razorpayOrderId:
-                    order.razorpayOrderId,
-                razorpayPaymentId:
-                    order.razorpayPaymentId,
-                paymentStatus:
-                    order.paymentStatus
+                orderId: finalized._id,
+                razorpayOrderId: finalized.razorpayOrderId,
+                razorpayPaymentId: finalized.razorpayPaymentId,
+                paymentStatus: finalized.paymentStatus
             }
         });
 
     } catch (error) {
-        // If an unexpected failure occurs after stock was decremented
-        // but before the order is finalized, restore only the stock that
-        // this request successfully changed. This prevents a failed
-        // payment-verification request from silently consuming inventory.
-        if (
-            order &&
-            order.paymentStatus === "processing" &&
-            updatedProducts.length > 0
-        ) {
-            for (const updatedItem of updatedProducts) {
-                try {
-                    await Product.findByIdAndUpdate(
-                        updatedItem.productId,
-                        {
-                            $inc: {
-                                stock: updatedItem.quantity
-                            }
-                        }
-                    );
-                } catch (rollbackError) {
-                    console.error(
-                        "Payment stock rollback error:",
-                        rollbackError.message
-                    );
-                }
-            }
+        console.error("Payment verification error:", error.message);
 
+        if (order) {
             try {
-                order.paymentStatus = "failed";
-                order.paymentProcessingAt = null;
-                await order.save();
-            } catch (orderSaveError) {
+                if (order.paymentStatus === "processing") {
+                    order.paymentStatus = "failed";
+                    order.paymentProcessingAt = null;
+                    await order.save();
+                }
+            } catch (saveError) {
                 console.error(
                     "Payment failure state save error:",
-                    orderSaveError.message
+                    saveError.message
                 );
             }
         }
 
-        console.error(
-            "Payment verification error:",
-            error.message
-        );
-
         return res.status(500).json({
-            message:
-                "Payment verification failed due to a server error"
+            message: "Payment verification failed due to a server error"
         });
     }
 };
