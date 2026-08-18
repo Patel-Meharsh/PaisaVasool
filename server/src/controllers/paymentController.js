@@ -152,6 +152,9 @@ const createRazorpayOrder = async (req, res) => {
 // ============================================================
 
 const verifyRazorpayPayment = async (req, res) => {
+    let order = null;
+    const updatedProducts = [];
+
     try {
         const {
             orderId,
@@ -179,7 +182,7 @@ const verifyRazorpayPayment = async (req, res) => {
         }
 
         // Atomically claim the order for payment finalization.
-        const order = await Order.findOneAndUpdate(
+        order = await Order.findOneAndUpdate(
             {
                 _id: orderId,
                 user: req.user._id,
@@ -278,8 +281,6 @@ const verifyRazorpayPayment = async (req, res) => {
             });
         }
 
-        const updatedProducts = [];
-
         for (const item of order.items) {
             const updatedProduct =
                 await Product.findOneAndUpdate(
@@ -311,6 +312,8 @@ const verifyRazorpayPayment = async (req, res) => {
                         }
                     );
                 }
+
+                updatedProducts.length = 0;
 
                 try {
                     const refund =
@@ -444,6 +447,45 @@ const verifyRazorpayPayment = async (req, res) => {
         });
 
     } catch (error) {
+        // If an unexpected failure occurs after stock was decremented
+        // but before the order is finalized, restore only the stock that
+        // this request successfully changed. This prevents a failed
+        // payment-verification request from silently consuming inventory.
+        if (
+            order &&
+            order.paymentStatus === "processing" &&
+            updatedProducts.length > 0
+        ) {
+            for (const updatedItem of updatedProducts) {
+                try {
+                    await Product.findByIdAndUpdate(
+                        updatedItem.productId,
+                        {
+                            $inc: {
+                                stock: updatedItem.quantity
+                            }
+                        }
+                    );
+                } catch (rollbackError) {
+                    console.error(
+                        "Payment stock rollback error:",
+                        rollbackError.message
+                    );
+                }
+            }
+
+            try {
+                order.paymentStatus = "failed";
+                order.paymentProcessingAt = null;
+                await order.save();
+            } catch (orderSaveError) {
+                console.error(
+                    "Payment failure state save error:",
+                    orderSaveError.message
+                );
+            }
+        }
+
         console.error(
             "Payment verification error:",
             error.message
