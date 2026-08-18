@@ -3,7 +3,6 @@
 // ============================================================
 
 const crypto = require("crypto");
-const mongoose = require("mongoose");
 
 const Order = require("../models/Order");
 const Product = require("../models/Product");
@@ -48,6 +47,8 @@ const finalizeCapturedPayment = async (order, paymentId) => {
     const expectedAmount =
         Math.round(order.totalAmount * 100);
 
+    // Always fetch the payment from Razorpay instead of trusting the
+    // webhook payload for amount, currency or capture status.
     const payment = await razorpay.payments.fetch(paymentId);
 
     if (
@@ -58,13 +59,13 @@ const finalizeCapturedPayment = async (order, paymentId) => {
     ) {
         return {
             handled: false,
+            retry: false,
             reason: "Payment details do not match the order"
         };
     }
 
-    // Claim only an order that is not already finalized.
-    // A processing payment can be reclaimed only when its previous
-    // attempt is stale, which protects against a crashed request.
+    // A payment verification request can crash after claiming an order.
+    // Allow a webhook to reclaim only a stale processing attempt.
     const staleProcessingCutoff = new Date(
         Date.now() - 5 * 60 * 1000
     );
@@ -105,9 +106,13 @@ const finalizeCapturedPayment = async (order, paymentId) => {
         const currentOrder = await Order.findById(order._id);
 
         return {
-            handled: currentOrder?.paymentStatus === "paid",
+            handled: currentOrder?.paymentStatus === "paid" ||
+                currentOrder?.paymentStatus === "refunded",
+            retry:
+                currentOrder?.paymentStatus === "processing",
             reason:
-                currentOrder?.paymentStatus === "paid"
+                currentOrder?.paymentStatus === "paid" ||
+                currentOrder?.paymentStatus === "refunded"
                     ? "Payment already finalized"
                     : "Payment finalization is already in progress"
         };
@@ -137,6 +142,7 @@ const finalizeCapturedPayment = async (order, paymentId) => {
                 );
 
             if (!updatedProduct) {
+                // Roll back stock already reserved during this attempt.
                 for (const updatedItem of updatedProducts) {
                     await Product.findByIdAndUpdate(
                         updatedItem.productId,
@@ -178,10 +184,13 @@ const finalizeCapturedPayment = async (order, paymentId) => {
 
                     return {
                         handled: true,
+                        retry: false,
                         refunded: true
                     };
 
                 } catch (refundError) {
+                    // Payment was captured. Keep it marked paid so the
+                    // failed refund is visible for manual reconciliation.
                     claimedOrder.paymentStatus = "paid";
                     claimedOrder.refundStatus = "failed";
                     claimedOrder.paymentProcessingAt = null;
@@ -194,6 +203,7 @@ const finalizeCapturedPayment = async (order, paymentId) => {
 
                     return {
                         handled: true,
+                        retry: false,
                         refunded: false,
                         reason:
                             "Payment captured but automatic refund failed"
@@ -216,13 +226,13 @@ const finalizeCapturedPayment = async (order, paymentId) => {
 
         return {
             handled: true,
+            retry: false,
             refunded: false
         };
 
     } catch (error) {
-        // If finalization fails before payment is marked paid, leave the
-        // order in processing so a later webhook/recovery attempt can
-        // reconcile it instead of incorrectly marking the payment failed.
+        // Keep the order in processing. Returning 500 causes Razorpay to
+        // retry the signed webhook instead of losing the captured payment.
         console.error(
             "Webhook payment finalization error:",
             error.message
@@ -230,6 +240,7 @@ const finalizeCapturedPayment = async (order, paymentId) => {
 
         return {
             handled: false,
+            retry: true,
             reason: "Payment finalization requires another attempt"
         };
     }
@@ -293,18 +304,25 @@ const handleRazorpayWebhook = async (req, res) => {
                 paymentMethod: "online"
             });
 
-            // Unknown orders should still receive 200 so Razorpay does
-            // not repeatedly retry an event that belongs to another app.
+            // Unknown orders are acknowledged because they do not belong
+            // to this application and should not trigger endless retries.
             if (!order) {
                 return res.status(200).json({
                     message: "Webhook received"
                 });
             }
 
-            await finalizeCapturedPayment(
+            const result = await finalizeCapturedPayment(
                 order,
                 paymentId
             );
+
+            if (result.retry) {
+                return res.status(500).json({
+                    message:
+                        "Payment finalization is incomplete; retry required"
+                });
+            }
 
             return res.status(200).json({
                 message: "Payment webhook processed"
