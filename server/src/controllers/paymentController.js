@@ -1,8 +1,5 @@
 // ============================================================
 // PAYMENT CONTROLLER
-// Razorpay order creation and payment verification.
-// Inventory is reserved during checkout, so payment verification
-// never decrements stock a second time.
 // ============================================================
 
 const mongoose = require("mongoose");
@@ -20,29 +17,29 @@ const {
 } = require("../utils/sendEmail");
 
 
-const releaseExpiredOrderReservation = async (order) => {
-    const now = new Date();
-
+const releaseOrderReservation = async (orderId, cancelOrder = true) => {
     const released = await Order.findOneAndUpdate(
         {
-            _id: order._id,
-            status: "pending",
-            inventoryReserved: true,
-            inventoryReservedUntil: { $lte: now }
+            _id: orderId,
+            inventoryReserved: true
         },
         {
             $set: {
                 inventoryReserved: false,
-                inventoryReleasedAt: now,
+                inventoryReleasedAt: new Date(),
                 inventoryReservedUntil: null,
-                status: "cancelled",
-                paymentStatus: "failed"
+                ...(cancelOrder
+                    ? {
+                        status: "cancelled",
+                        paymentStatus: "failed"
+                    }
+                    : {})
             }
         },
         { new: true }
     );
 
-    if (!released) return false;
+    if (!released) return null;
 
     for (const item of released.items) {
         await Product.findByIdAndUpdate(
@@ -51,7 +48,7 @@ const releaseExpiredOrderReservation = async (order) => {
         );
     }
 
-    return true;
+    return released;
 };
 
 
@@ -90,10 +87,7 @@ const refundCapturedPayment = async (
         await order.save();
 
         return refund;
-
     } catch (error) {
-        // Payment was captured but automatic refund failed. Keep the
-        // financial exception explicit and block fulfilment elsewhere.
         order.razorpayPaymentId = razorpayPaymentId;
         order.refundAmount = amountInPaise / 100;
         order.paymentStatus = "paid";
@@ -105,10 +99,6 @@ const refundCapturedPayment = async (
 };
 
 
-// ============================================================
-// CREATE RAZORPAY ORDER
-// ============================================================
-
 const createRazorpayOrder = async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -119,7 +109,7 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
-        let order = await Order.findOne({
+        const order = await Order.findOne({
             _id: orderId,
             user: req.user._id
         });
@@ -157,7 +147,7 @@ const createRazorpayOrder = async (req, res) => {
             order.inventoryReservedUntil &&
             order.inventoryReservedUntil <= new Date()
         ) {
-            await releaseExpiredOrderReservation(order);
+            await releaseOrderReservation(order._id);
             return res.status(409).json({
                 message:
                     "The payment reservation has expired. Please create a new order."
@@ -226,10 +216,6 @@ const createRazorpayOrder = async (req, res) => {
     }
 };
 
-
-// ============================================================
-// VERIFY RAZORPAY PAYMENT
-// ============================================================
 
 const verifyRazorpayPayment = async (req, res) => {
     let order = null;
@@ -312,7 +298,7 @@ const verifyRazorpayPayment = async (req, res) => {
                 existingOrder.inventoryReservedUntil &&
                 existingOrder.inventoryReservedUntil <= new Date()
             ) {
-                await releaseExpiredOrderReservation(existingOrder);
+                await releaseOrderReservation(existingOrder._id);
             }
 
             return res.status(409).json({
@@ -334,7 +320,7 @@ const verifyRazorpayPayment = async (req, res) => {
             order.paymentStatus = "failed";
             order.paymentProcessingAt = null;
             await order.save();
-            await releaseExpiredOrderReservation({ _id: order._id });
+            await releaseOrderReservation(order._id);
 
             return res.status(400).json({
                 message: "Payment verification failed"
@@ -363,69 +349,20 @@ const verifyRazorpayPayment = async (req, res) => {
                         Number(payment.amount) || expectedAmount,
                         "Payment details did not match PaisaVasool order"
                     );
-
-                    // Release inventory only after the financial exception
-                    // has been safely moved to a refund state.
-                    const released = await Order.findOneAndUpdate(
-                        {
-                            _id: order._id,
-                            inventoryReserved: true
-                        },
-                        {
-                            $set: {
-                                inventoryReserved: false,
-                                inventoryReleasedAt: new Date(),
-                                inventoryReservedUntil: null
-                            }
-                        },
-                        { new: true }
-                    );
-
-                    if (released) {
-                        for (const item of released.items) {
-                            await Product.findByIdAndUpdate(
-                                item.product,
-                                { $inc: { stock: item.quantity } }
-                            );
-                        }
-                    }
                 } catch (refundError) {
                     console.error(
                         "Automatic mismatch refund error:",
                         refundError.message
                     );
-
-                    return res.status(502).json({
-                        message:
-                            "Payment was captured but could not be reconciled automatically. The order is blocked for financial review."
-                    });
                 }
+
+                await releaseOrderReservation(order._id, false);
+
             } else {
                 order.paymentStatus = "failed";
                 order.paymentProcessingAt = null;
                 await order.save();
-
-                const released = await Order.findOneAndUpdate(
-                    { _id: order._id, inventoryReserved: true },
-                    {
-                        $set: {
-                            inventoryReserved: false,
-                            inventoryReleasedAt: new Date(),
-                            inventoryReservedUntil: null,
-                            status: "cancelled"
-                        }
-                    },
-                    { new: true }
-                );
-
-                if (released) {
-                    for (const item of released.items) {
-                        await Product.findByIdAndUpdate(
-                            item.product,
-                            { $inc: { stock: item.quantity } }
-                        );
-                    }
-                }
+                await releaseOrderReservation(order._id);
             }
 
             return res.status(400).json({
@@ -433,8 +370,6 @@ const verifyRazorpayPayment = async (req, res) => {
             });
         }
 
-        // Inventory was already reserved during checkout. Verify that it
-        // still belongs to this order and then finalize payment atomically.
         const finalized = await Order.findOneAndUpdate(
             {
                 _id: order._id,
@@ -492,10 +427,7 @@ const verifyRazorpayPayment = async (req, res) => {
                 finalized
             );
         } catch (emailError) {
-            console.error(
-                "Order email error:",
-                emailError.message
-            );
+            console.error("Order email error:", emailError.message);
         }
 
         return res.status(200).json({
@@ -518,10 +450,11 @@ const verifyRazorpayPayment = async (req, res) => {
                     order.paymentStatus = "failed";
                     order.paymentProcessingAt = null;
                     await order.save();
+                    await releaseOrderReservation(order._id);
                 }
             } catch (saveError) {
                 console.error(
-                    "Payment failure state save error:",
+                    "Payment failure cleanup error:",
                     saveError.message
                 );
             }
