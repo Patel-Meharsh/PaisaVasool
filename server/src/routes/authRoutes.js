@@ -16,23 +16,23 @@ const {
     loginUser,
     forgotPassword,
     verifyPasswordResetOtp,
-    resetPassword,
-    logoutUser
+    resetPassword
 } = require("../controllers/authController");
 
 
 // ============================================================
-// IMPORT MIDDLEWARE
+// VALIDATION
 // ============================================================
-
-const protect = require("../middleware/authMiddleware");
 
 const validate =
     require("../validators/validationMiddleware");
 
 const {
     registerSchema,
-    loginSchema
+    loginSchema,
+    forgotPasswordSchema,
+    verifyPasswordResetOtpSchema,
+    resetPasswordSchema
 } = require("../validators/authValidator");
 
 
@@ -74,6 +74,7 @@ router.post(
 
 router.post(
     "/forgot-password",
+    validate(forgotPasswordSchema),
     forgotPassword
 );
 
@@ -84,6 +85,15 @@ router.post(
 
 router.post(
     "/verify-password-reset-otp",
+    validate(verifyPasswordResetOtpSchema),
+    verifyPasswordResetOtp
+);
+
+
+// Backward-compatible alias used by older client code.
+router.post(
+    "/verify-reset-otp",
+    validate(verifyPasswordResetOtpSchema),
     verifyPasswordResetOtp
 );
 
@@ -94,25 +104,9 @@ router.post(
 
 router.post(
     "/reset-password",
+    validate(resetPasswordSchema),
     resetPassword
 );
 
-
-// ============================================================
-// LOGOUT
-// ============================================================
-
-// The frontend also removes the JWT locally, while this endpoint
-// invalidates the token server-side by increasing sessionVersion.
-router.post(
-    "/logout",
-    protect,
-    logoutUser
-);
-
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = router;
