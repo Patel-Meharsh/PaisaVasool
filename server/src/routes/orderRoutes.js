@@ -1,35 +1,22 @@
 const express = require("express");
 const router = express.Router();
 
-// ============================================================
-// MIDDLEWARE
-// ============================================================
-
 const protect = require("../middleware/authMiddleware");
 const authorize = require("../middleware/roleMiddleware");
-
-// ============================================================
-// CONTROLLERS
-// ============================================================
+const validate = require("../validators/validationMiddleware");
+const { createOrderSchema } = require("../validators/orderValidator");
 
 const {
     createOrder,
     getMyOrders,
-    getOrderById
-} = require("../controllers/orderController");
+    getOrderById,
+    getAllOrders
+} = require("../controllers/orderControllerSafe");
 
 const {
     cancelOrderSafely,
     updateOrderStatusSafely
 } = require("../controllers/orderSafetyController");
-
-const validate = require("../validators/validationMiddleware");
-const { createOrderSchema } = require("../validators/orderValidator");
-
-
-// ============================================================
-// USER ROUTES
-// ============================================================
 
 router.post(
     "/",
@@ -56,13 +43,6 @@ router.put(
     cancelOrderSafely
 );
 
-
-// ============================================================
-// ADMIN ROUTES
-// ============================================================
-
-const { getAllOrders } = require("../controllers/orderController");
-
 router.get(
     "/admin/all",
     protect,
@@ -76,6 +56,5 @@ router.put(
     authorize("admin"),
     updateOrderStatusSafely
 );
-
 
 module.exports = router;
