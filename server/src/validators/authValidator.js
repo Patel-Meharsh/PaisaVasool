@@ -46,6 +46,22 @@ const loginSchema = Joi.object({
 
 
 // ------------------------------------------------------------
+// EMAIL VERIFICATION VALIDATION
+// ------------------------------------------------------------
+
+const verifyEmailSchema = Joi.object({
+    pendingRegistrationId: Joi.string()
+        .hex()
+        .length(24)
+        .required(),
+
+    otp: Joi.string()
+        .pattern(/^[0-9]{6}$/)
+        .required()
+});
+
+
+// ------------------------------------------------------------
 // FORGOT PASSWORD VALIDATION
 // ------------------------------------------------------------
 
@@ -77,6 +93,7 @@ const resetPasswordSchema = Joi.object({
 
 module.exports = {
     registerSchema,
+    verifyEmailSchema,
     loginSchema,
     forgotPasswordSchema,
     verifyPasswordResetOtpSchema,
