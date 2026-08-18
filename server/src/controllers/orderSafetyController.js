@@ -297,6 +297,27 @@ const updateOrderStatusSafely = async (req, res) => {
 
 
         // --------------------------------------------------------
+        // ONLINE PAYMENT SAFETY
+        // --------------------------------------------------------
+        // An online order must be successfully paid before an admin
+        // can confirm, ship or deliver it. Without this check, an admin
+        // could accidentally move an unpaid online order through the
+        // fulfilment pipeline and ship goods without receiving payment.
+        // COD orders are intentionally allowed to remain unpaid until
+        // delivery.
+        if (
+            order.paymentMethod === "online" &&
+            ["confirmed", "shipped", "delivered"].includes(status) &&
+            order.paymentStatus !== "paid"
+        ) {
+            return res.status(400).json({
+                message:
+                    "Online orders must be paid before they can be confirmed, shipped or delivered"
+            });
+        }
+
+
+        // --------------------------------------------------------
         // ADMIN CANCELLATION
         // --------------------------------------------------------
 
