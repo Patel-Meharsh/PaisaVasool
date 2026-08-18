@@ -321,351 +321,184 @@ function OrderDetails() {
     // UI
     // ============================================================
 
-   return (
+    return (
 
-    <div className="order-details-page">
+        <div className="order-details-page">
 
-        {/* ====================================================
-            BACK TO ORDERS
-        ==================================================== */}
+            {/* ====================================================
+                BACK TO ORDERS
+            ==================================================== */}
 
-        <Link
-            to="/orders"
-            className="order-details-back"
-        >
-            ← Back to My Orders
-        </Link>
-
-
-        {/* ====================================================
-            PAGE HEADER
-        ==================================================== */}
-
-        <div className="order-details-header">
-
-            <div>
-
-                <span className="order-details-label">
-                    Order Details
-                </span>
-
-                <h1>
-                    Order #{order._id}
-                </h1>
-
-            </div>
-
-            <span
-                className={`order-details-status order-status-${order.status?.toLowerCase()}`}
+            <Link
+                to="/orders"
+                className="order-details-back"
             >
-                {order.status}
-            </span>
-
-        </div>
+                ← Back to My Orders
+            </Link>
 
 
-        {/* ====================================================
-            ORDER INFORMATION
-        ==================================================== */}
+            {/* ====================================================
+                PAGE HEADER
+            ==================================================== */}
 
-        <div className="order-information">
+            <div className="order-details-header">
 
-            <div className="order-information-item">
+                <div>
 
-                <span>
-                    Order Status
-                </span>
+                    <span className="order-details-label">
+                        Order Details
+                    </span>
 
-                <strong
-                    className={`detail-status detail-status-${order.status?.toLowerCase()}`}
+                    <h1>
+                        Order #{order._id}
+                    </h1>
+
+                </div>
+
+                <span
+                    className={`order-details-status order-status-${order.status?.toLowerCase()}`}
                 >
                     {order.status}
-                </strong>
-
-            </div>
-
-
-            <div className="order-information-item">
-
-                <span>
-                    Payment Method
                 </span>
 
-                <strong>
-                    {order.paymentMethod}
-                </strong>
-
             </div>
 
 
-            <div className="order-information-item">
+            {/* ====================================================
+                ORDER INFORMATION
+            ==================================================== */}
 
-                <span>
-                    Payment Status
-                </span>
+            <div className="order-information">
 
-                <strong
-                    className={`detail-status detail-payment-${order.paymentStatus?.toLowerCase()}`}
-                >
-                    {order.paymentStatus}
-                </strong>
+                <div className="order-information-item">
 
-            </div>
+                    <span>
+                        Order Status
+                    </span>
 
-
-            <div className="order-information-item">
-
-                <span>
-                    Total Items
-                </span>
-
-                <strong>
-                    {totalItems}
-                    {totalItems === 1
-                        ? " Item"
-                        : " Items"}
-                </strong>
-
-            </div>
-
-        </div>
-
-
-        {/* ====================================================
-            CANCEL ERROR
-        ==================================================== */}
-
-        {cancelError && (
-
-            <div className="order-details-error">
-                {cancelError}
-            </div>
-
-        )}
-
-
-        {/* ====================================================
-            CANCEL ORDER
-        ==================================================== */}
-
-        {canCancel && (
-
-            <div className="cancel-order-section">
-
-                <div>
-
-                    <h3>
-                        Cancel Order
-                    </h3>
-
-                    <p>
-                        You can cancel this order while it is
-                        still being processed.
-                    </p>
+                    <strong
+                        className={`detail-status detail-status-${order.status?.toLowerCase()}`}
+                    >
+                        {order.status}
+                    </strong>
 
                 </div>
 
-                <button
-                    onClick={handleCancelOrder}
-                    disabled={cancelLoading}
-                    className="cancel-order-button"
-                >
-                    {cancelLoading
-                        ? "Cancelling..."
-                        : "Cancel Order"}
-                </button>
 
-            </div>
+                <div className="order-information-item">
 
-        )}
+                    <span>
+                        Payment Method
+                    </span>
+
+                    <strong>
+                        {order.paymentMethod}
+                    </strong>
+
+                </div>
 
 
-        {/* ====================================================
-            PRODUCTS
-        ==================================================== */}
+                <div className="order-information-item">
 
-        <div className="order-items">
+                    <span>
+                        Payment Status
+                    </span>
 
-            <div className="section-heading">
+                    <strong
+                        className={`detail-status detail-payment-${order.paymentStatus?.toLowerCase()}`}
+                    >
+                        {order.paymentStatus}
+                    </strong>
 
-                <div>
+                </div>
 
-                    <h2>
-                        Products
-                    </h2>
 
-                    <p>
+                <div className="order-information-item">
+
+                    <span>
+                        Total Items
+                    </span>
+
+                    <strong>
                         {totalItems}
                         {totalItems === 1
-                            ? " item"
-                            : " items"} in this order
-                    </p>
+                            ? " Item"
+                            : " Items"}
+                    </strong>
 
                 </div>
 
             </div>
 
 
-            <div className="order-items-list">
+            {/* ====================================================
+                CANCEL ERROR
+            ==================================================== */}
 
-                {order.items.map((item) => (
+            {cancelError && (
 
-                    <div
-                        className="order-item"
-                        key={item._id}
-                    >
+                <div className="order-details-error">
+                    {cancelError}
+                </div>
 
-                        {/* Product Image */}
-
-                        <div className="order-item-image">
-
-                            {item.product?.images &&
-                            item.product.images.length > 0 ? (
-
-                                <img
-                                    src={item.product.images[0]}
-                                    alt={item.name}
-                                />
-
-                            ) : (
-
-                                <span>
-                                    No Image
-                                </span>
-
-                            )}
-
-                        </div>
+            )}
 
 
-                        {/* Product Details */}
+            {/* ====================================================
+                CANCEL ORDER
+            ==================================================== */}
 
-                        <div className="order-item-info">
+            {canCancel && (
 
-                            <h3>
-                                {item.name}
-                            </h3>
+                <div className="cancel-order-section">
 
-                            <p>
-                                Price: ₹{item.price}
-                            </p>
+                    <div>
 
-                            <p>
-                                Quantity: {item.quantity}
-                            </p>
+                        <h3>
+                            Cancel Order
+                        </h3>
 
-                        </div>
-
-
-                        {/* Product Subtotal */}
-
-                        <div className="order-item-price">
-
-                            <span>
-                                Subtotal
-                            </span>
-
-                            <strong>
-                                ₹{item.price * item.quantity}
-                            </strong>
-
-                        </div>
+                        <p>
+                            You can cancel this order while it is
+                            still being processed.
+                        </p>
 
                     </div>
 
-                ))}
-
-            </div>
-
-        </div>
-
-
-        {/* ====================================================
-            ORDER TOTAL
-        ==================================================== */}
-
-        <div className="order-total-section">
-
-            <span>
-                Order Total
-            </span>
-
-            <strong>
-                ₹{order.totalAmount}
-            </strong>
-
-        </div>
-
-
-        {/* ====================================================
-            SHIPPING ADDRESS
-        ==================================================== */}
-
-        <div className="shipping-address">
-
-            <div className="section-heading">
-
-                <div>
-
-                    <h2>
-                        Shipping Address
-                    </h2>
-
-                    <p>
-                        Delivery information
-                    </p>
+                    <button
+                        onClick={handleCancelOrder}
+                        disabled={cancelLoading}
+                        className="cancel-order-button"
+                    >
+                        {cancelLoading
+                            ? "Cancelling..."
+                            : "Cancel Order"}
+                    </button>
 
                 </div>
 
-            </div>
+            )}
 
 
-            <div className="shipping-address-content">
+            {/* ====================================================
+                PRODUCTS
+            ==================================================== */}
 
-                <strong>
-                    {order.shippingAddress.fullName}
-                </strong>
-
-                <p>
-                    {order.shippingAddress.address}
-                </p>
-
-                <p>
-                    {order.shippingAddress.city},{" "}
-                    {order.shippingAddress.state}
-                </p>
-
-                <p>
-                    {order.shippingAddress.postalCode}
-                </p>
-
-                <p>
-                    {order.shippingAddress.country}
-                </p>
-
-            </div>
-
-        </div>
-
-
-        {/* ====================================================
-            RETURN SECTION
-        ==================================================== */}
-
-        {order.status === "delivered" && (
-
-            <div className="return-section">
+            <div className="order-items">
 
                 <div className="section-heading">
 
                     <div>
 
                         <h2>
-                            Return
+                            Products
                         </h2>
 
                         <p>
-                            Manage your return request
+                            {totalItems}
+                            {totalItems === 1
+                                ? " item"
+                                : " items"} in this order
                         </p>
 
                     </div>
@@ -673,129 +506,304 @@ function OrderDetails() {
                 </div>
 
 
-                {order.returnStatus !== "none" ? (
+                <div className="order-items-list">
 
-                    <div className="return-status-card">
+                    {order.items.map((item) => {
 
-                        <div className="return-status-row">
+                        const image =
+                            item.images?.[0] ||
+                            item.product?.images?.[0];
 
-                            <span>
-                                Return Status
-                            </span>
+                        return (
 
-                            <strong
-                                className={`return-status return-${order.returnStatus?.toLowerCase()}`}
+                            <div
+                                className="order-item"
+                                key={item._id}
                             >
-                                {order.returnStatus}
-                            </strong>
+
+                                {/* Product Image */}
+
+                                <div className="order-item-image">
+
+                                    {image ? (
+
+                                        <img
+                                            src={image}
+                                            alt={item.name}
+                                            loading="lazy"
+                                            decoding="async"
+                                        />
+
+                                    ) : (
+
+                                        <span>
+                                            No Image
+                                        </span>
+
+                                    )}
+
+                                </div>
+
+
+                                {/* Product Details */}
+
+                                <div className="order-item-info">
+
+                                    <h3>
+                                        {item.name}
+                                    </h3>
+
+                                    <p>
+                                        Price: ₹{item.price}
+                                    </p>
+
+                                    <p>
+                                        Quantity: {item.quantity}
+                                    </p>
+
+                                </div>
+
+
+                                {/* Product Subtotal */}
+
+                                <div className="order-item-price">
+
+                                    <span>
+                                        Subtotal
+                                    </span>
+
+                                    <strong>
+                                        ₹{item.price * item.quantity}
+                                    </strong>
+
+                                </div>
+
+                            </div>
+
+                        );
+                    })}
+
+                </div>
+
+            </div>
+
+
+            {/* ====================================================
+                ORDER TOTAL
+            ==================================================== */}
+
+            <div className="order-total-section">
+
+                <span>
+                    Order Total
+                </span>
+
+                <strong>
+                    ₹{order.totalAmount}
+                </strong>
+
+            </div>
+
+
+            {/* ====================================================
+                SHIPPING ADDRESS
+            ==================================================== */}
+
+            <div className="shipping-address">
+
+                <div className="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Shipping Address
+                        </h2>
+
+                        <p>
+                            Delivery information
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div className="shipping-address-content">
+
+                    <strong>
+                        {order.shippingAddress.fullName}
+                    </strong>
+
+                    <p>
+                        {order.shippingAddress.address}
+                    </p>
+
+                    <p>
+                        {order.shippingAddress.city},{" "}
+                        {order.shippingAddress.state}
+                    </p>
+
+                    <p>
+                        {order.shippingAddress.postalCode}
+                    </p>
+
+                    <p>
+                        {order.shippingAddress.country}
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {/* ====================================================
+                RETURN SECTION
+            ==================================================== */}
+
+            {order.status === "delivered" && (
+
+                <div className="return-section">
+
+                    <div className="section-heading">
+
+                        <div>
+
+                            <h2>
+                                Return
+                            </h2>
+
+                            <p>
+                                Manage your return request
+                            </p>
 
                         </div>
 
+                    </div>
 
-                        {order.returnReason && (
 
-                            <div className="return-reason">
+                    {order.returnStatus !== "none" ? (
+
+                        <div className="return-status-card">
+
+                            <div className="return-status-row">
 
                                 <span>
-                                    Return Reason
+                                    Return Status
                                 </span>
 
-                                <p>
-                                    {order.returnReason}
-                                </p>
+                                <strong
+                                    className={`return-status return-${order.returnStatus?.toLowerCase()}`}
+                                >
+                                    {order.returnStatus}
+                                </strong>
 
                             </div>
 
-                        )}
 
-                    </div>
+                            {order.returnReason && (
 
-                ) : (
+                                <div className="return-reason">
 
-                    <div className="return-request-form">
+                                    <span>
+                                        Return Reason
+                                    </span>
 
-                        <p>
-                            If you want to return this delivered
-                            order, please provide a reason below.
-                        </p>
+                                    <p>
+                                        {order.returnReason}
+                                    </p>
 
+                                </div>
 
-                        <textarea
-                            value={returnReason}
-                            onChange={(event) =>
-                                setReturnReason(
-                                    event.target.value
-                                )
-                            }
-                            placeholder="Enter your return reason..."
-                            rows="4"
-                        />
+                            )}
 
+                        </div>
 
-                        {returnError && (
+                    ) : (
 
-                            <div className="return-error">
-                                {returnError}
-                            </div>
+                        <div className="return-request-form">
 
-                        )}
+                            <p>
+                                If you want to return this delivered
+                                order, please provide a reason below.
+                            </p>
 
 
-                        {returnSuccess && (
-
-                            <div className="return-success">
-                                {returnSuccess}
-                            </div>
-
-                        )}
-
-
-                        <button
-                            onClick={handleRequestReturn}
-                            disabled={
-                                returnLoading ||
-                                !canRequestReturn
-                            }
-                            className="return-button"
-                        >
-                            {returnLoading
-                                ? "Submitting..."
-                                : "Request Return"}
-                        </button>
-
-                    </div>
-
-                )}
-
-            </div>
-
-        )}
+                            <textarea
+                                value={returnReason}
+                                onChange={(event) =>
+                                    setReturnReason(
+                                        event.target.value
+                                    )
+                                }
+                                placeholder="Enter your return reason..."
+                                rows="4"
+                            />
 
 
-        {/* ====================================================
-            CANCELLED ORDER
-        ==================================================== */}
+                            {returnError && (
 
-        {order.status === "cancelled" && (
+                                <div className="return-error">
+                                    {returnError}
+                                </div>
 
-            <div className="cancelled-order-message">
+                            )}
 
-                <strong>
-                    This order has been cancelled.
-                </strong>
 
-                <p>
-                    No further actions are available for
-                    this order.
-                </p>
+                            {returnSuccess && (
 
-            </div>
+                                <div className="return-success">
+                                    {returnSuccess}
+                                </div>
 
-        )}
+                            )}
 
-    </div>
 
-);
+                            <button
+                                onClick={handleRequestReturn}
+                                disabled={
+                                    returnLoading ||
+                                    !canRequestReturn
+                                }
+                                className="return-button"
+                            >
+                                {returnLoading
+                                    ? "Submitting..."
+                                    : "Request Return"}
+                            </button>
+
+                        </div>
+
+                    )}
+
+                </div>
+
+            )}
+
+
+            {/* ====================================================
+                CANCELLED ORDER
+            ==================================================== */}
+
+            {order.status === "cancelled" && (
+
+                <div className="cancelled-order-message">
+
+                    <strong>
+                        This order has been cancelled.
+                    </strong>
+
+                    <p>
+                        No further actions are available for
+                        this order.
+                    </p>
+
+                </div>
+
+            )}
+
+        </div>
+
+    );
 }
 
 export default OrderDetails;
