@@ -138,10 +138,6 @@ function AdminOrders() {
     return (
         <div className="admin-orders-page">
 
-            {/* ==================================================
-                HEADER
-            ================================================== */}
-
             <div className="admin-orders-header">
 
                 <Link
@@ -159,21 +155,11 @@ function AdminOrders() {
 
             </div>
 
-
-            {/* ==================================================
-                ERROR
-            ================================================== */}
-
             {error && (
                 <div className="admin-orders-error">
                     {error}
                 </div>
             )}
-
-
-            {/* ==================================================
-                NO ORDERS
-            ================================================== */}
 
             {orders.length === 0 ? (
 
@@ -194,10 +180,6 @@ function AdminOrders() {
                             className="admin-order-card"
                             key={order._id}
                         >
-
-                            {/* ==================================================
-                                ORDER HEADER
-                            ================================================== */}
 
                             <div className="admin-order-header">
 
@@ -222,14 +204,7 @@ function AdminOrders() {
 
                             </div>
 
-
-                            {/* ==================================================
-                                CUSTOMER + PAYMENT + TOTAL
-                            ================================================== */}
-
                             <div className="admin-order-summary">
-
-                                {/* CUSTOMER */}
 
                                 <div className="admin-order-info-box">
 
@@ -248,9 +223,6 @@ function AdminOrders() {
                                     </small>
 
                                 </div>
-
-
-                                {/* PAYMENT */}
 
                                 <div className="admin-order-info-box">
 
@@ -271,9 +243,6 @@ function AdminOrders() {
 
                                 </div>
 
-
-                                {/* TOTAL */}
-
                                 <div className="admin-order-info-box">
 
                                     <span className="info-label">
@@ -290,11 +259,6 @@ function AdminOrders() {
                                 </div>
 
                             </div>
-
-
-                            {/* ==================================================
-                                ORDER STATUS
-                            ================================================== */}
 
                             <div className="admin-order-section">
 
@@ -363,11 +327,6 @@ function AdminOrders() {
 
                             </div>
 
-
-                            {/* ==================================================
-                                SHIPPING ADDRESS
-                            ================================================== */}
-
                             <div className="admin-order-section">
 
                                 <div className="admin-section-title">
@@ -413,11 +372,6 @@ function AdminOrders() {
 
                             </div>
 
-
-                            {/* ==================================================
-                                PRODUCTS
-                            ================================================== */}
-
                             <div className="admin-order-section">
 
                                 <div className="admin-section-title">
@@ -427,58 +381,75 @@ function AdminOrders() {
                                 <div className="admin-order-products">
 
                                     {order.items.map(
-                                        (item, index) => (
+                                        (item, index) => {
 
-                                            <div
-                                                className="admin-order-product"
-                                                key={
-                                                    item._id ||
-                                                    index
-                                                }
-                                            >
+                                            const image =
+                                                item.images?.[0] ||
+                                                item.product?.images?.[0];
 
-                                                <div className="product-details">
+                                            return (
+                                                <div
+                                                    className="admin-order-product"
+                                                    key={
+                                                        item._id ||
+                                                        index
+                                                    }
+                                                >
 
-                                                    <strong>
-                                                        {item.name}
-                                                    </strong>
+                                                    <div className="order-item-image">
 
-                                                    <span>
+                                                        {image ? (
+                                                            <img
+                                                                src={image}
+                                                                alt={item.name}
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                            />
+                                                        ) : (
+                                                            <span>
+                                                                No Image
+                                                            </span>
+                                                        )}
+
+                                                    </div>
+
+                                                    <div className="product-details">
+
+                                                        <strong>
+                                                            {item.name}
+                                                        </strong>
+
+                                                        <span>
+                                                            ₹
+                                                            {Number(
+                                                                item.price || 0
+                                                            ).toLocaleString(
+                                                                "en-IN"
+                                                            )}{" "}
+                                                            ×{" "}
+                                                            {item.quantity}
+                                                        </span>
+
+                                                    </div>
+
+                                                    <strong className="product-subtotal">
                                                         ₹
                                                         {Number(
-                                                            item.price || 0
+                                                            item.price *
+                                                            item.quantity
                                                         ).toLocaleString(
                                                             "en-IN"
-                                                        )}{" "}
-                                                        ×{" "}
-                                                        {item.quantity}
-                                                    </span>
+                                                        )}
+                                                    </strong>
 
                                                 </div>
-
-                                                <strong className="product-subtotal">
-                                                    ₹
-                                                    {Number(
-                                                        item.price *
-                                                        item.quantity
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}
-                                                </strong>
-
-                                            </div>
-
-                                        )
+                                            );
+                                        }
                                     )}
 
                                 </div>
 
                             </div>
-
-
-                            {/* ==================================================
-                                RETURN INFORMATION
-                            ================================================== */}
 
                             {order.returnStatus !== "none" && (
 
