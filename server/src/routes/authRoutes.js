@@ -7,6 +7,14 @@ const router = express.Router();
 
 
 // ============================================================
+// IMPORT AUTHENTICATION MIDDLEWARE
+// ============================================================
+
+const protect =
+    require("../middleware/authMiddleware");
+
+
+// ============================================================
 // IMPORT CONTROLLERS
 // ============================================================
 
@@ -16,7 +24,8 @@ const {
     loginUser,
     forgotPassword,
     verifyPasswordResetOtp,
-    resetPassword
+    resetPassword,
+    logoutUser
 } = require("../controllers/authController");
 
 
@@ -36,10 +45,6 @@ const {
 } = require("../validators/authValidator");
 
 
-// ============================================================
-// REGISTER
-// ============================================================
-
 router.post(
     "/register",
     validate(registerSchema),
@@ -47,19 +52,11 @@ router.post(
 );
 
 
-// ============================================================
-// VERIFY EMAIL
-// ============================================================
-
 router.post(
     "/verify-email",
     verifyEmail
 );
 
-
-// ============================================================
-// LOGIN
-// ============================================================
 
 router.post(
     "/login",
@@ -68,20 +65,12 @@ router.post(
 );
 
 
-// ============================================================
-// FORGOT PASSWORD
-// ============================================================
-
 router.post(
     "/forgot-password",
     validate(forgotPasswordSchema),
     forgotPassword
 );
 
-
-// ============================================================
-// VERIFY PASSWORD RESET OTP
-// ============================================================
 
 router.post(
     "/verify-password-reset-otp",
@@ -98,14 +87,22 @@ router.post(
 );
 
 
-// ============================================================
-// RESET PASSWORD
-// ============================================================
-
 router.post(
     "/reset-password",
     validate(resetPasswordSchema),
     resetPassword
+);
+
+
+// ============================================================
+// LOGOUT
+// ============================================================
+// Invalidates the current JWT through sessionVersion.
+
+router.post(
+    "/logout",
+    protect,
+    logoutUser
 );
 
 
