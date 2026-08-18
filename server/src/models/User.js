@@ -10,23 +10,13 @@ const bcrypt = require("bcryptjs");
 // ============================================================
 
 const userSchema = new mongoose.Schema(
-
     {
-
-        // ----------------------------------------------------
-        // User's full name
-        // ----------------------------------------------------
 
         name: {
             type: String,
             required: true,
             trim: true
         },
-
-
-        // ----------------------------------------------------
-        // User's email address
-        // ----------------------------------------------------
 
         email: {
             type: String,
@@ -36,21 +26,11 @@ const userSchema = new mongoose.Schema(
             trim: true
         },
 
-
-        // ----------------------------------------------------
-        // User's password
-        // ----------------------------------------------------
-
         password: {
             type: String,
             required: true,
             minlength: 6
         },
-
-
-        // ----------------------------------------------------
-        // User's role
-        // ----------------------------------------------------
 
         role: {
             type: String,
@@ -61,53 +41,45 @@ const userSchema = new mongoose.Schema(
             default: "customer"
         },
 
-
-        // ----------------------------------------------------
-        // Email verification status
-        // ----------------------------------------------------
-
         isEmailVerified: {
             type: Boolean,
             default: false
         },
-
-
-        // ----------------------------------------------------
-        // Account active status
-        // ----------------------------------------------------
 
         isActive: {
             type: Boolean,
             default: true
         },
 
+        // Optional profile information used by the profile page.
+        phone: {
+            type: String,
+            default: "",
+            trim: true
+        },
 
-        // ----------------------------------------------------
-        // SESSION VERSION
-        // ----------------------------------------------------
-        // Every time a security-sensitive account change happens
-        // (password change or account activation/deactivation),
-        // this value is increased.
-        //
-        // JWTs contain the version that was current when they were
-        // issued. authMiddleware compares the JWT version with the
-        // current database version, which lets us invalidate all
-        // previously issued tokens without storing every token.
-        // ----------------------------------------------------
+        profilePicture: {
+            url: {
+                type: String,
+                default: ""
+            },
+            publicId: {
+                type: String,
+                default: ""
+            }
+        },
 
+        // Every security-sensitive session invalidation increments this.
+        // Existing JWTs contain the previous value and are rejected by
+        // authMiddleware when the values no longer match.
         sessionVersion: {
             type: Number,
             default: 0
         }
-
     },
-
     {
-
         timestamps: true
-
     }
-
 );
 
 
@@ -119,11 +91,8 @@ userSchema.pre(
     "save",
     async function() {
 
-        // ----------------------------------------------------
-        // Invalidate existing sessions when a security-sensitive
-        // field changes.
-        // ----------------------------------------------------
-
+        // Password changes and account activation/deactivation
+        // invalidate all previously issued JWTs.
         if (
             !this.isNew &&
             (
@@ -131,56 +100,31 @@ userSchema.pre(
                 this.isModified("isActive")
             )
         ) {
-
             this.sessionVersion += 1;
-
         }
 
 
-        // ----------------------------------------------------
-        // If this password was already hashed before the User
-        // document was created, don't hash it again.
-        // ----------------------------------------------------
-
+        // Registration verification already supplies a bcrypt hash.
         if (
             this.$locals &&
             this.$locals.passwordAlreadyHashed
         ) {
-
             return;
-
         }
 
 
-        // ----------------------------------------------------
-        // If password hasn't changed, don't hash again.
-        // ----------------------------------------------------
-
+        // Do not re-hash an unchanged password.
         if (!this.isModified("password")) {
-
             return;
-
         }
 
 
-        // ----------------------------------------------------
-        // Generate salt
-        // ----------------------------------------------------
+        const salt = await bcrypt.genSalt(10);
 
-        const salt =
-            await bcrypt.genSalt(10);
-
-
-        // ----------------------------------------------------
-        // Hash password
-        // ----------------------------------------------------
-
-        this.password =
-            await bcrypt.hash(
-                this.password,
-                salt
-            );
-
+        this.password = await bcrypt.hash(
+            this.password,
+            salt
+        );
     }
 );
 
@@ -196,23 +140,17 @@ userSchema.methods.comparePassword =
             enteredPassword,
             this.password
         );
-
     };
 
 
 // ============================================================
-// CREATE USER MODEL
+// CREATE MODEL
 // ============================================================
 
-const User =
-    mongoose.model(
-        "User",
-        userSchema
-    );
+const User = mongoose.model(
+    "User",
+    userSchema
+);
 
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = User;
