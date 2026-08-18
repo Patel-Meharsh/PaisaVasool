@@ -11,8 +11,10 @@ const User = require("../models/User");
 // AUTHENTICATION MIDDLEWARE
 // ============================================================
 
-// This middleware checks whether the user has a valid JWT
-// and then loads the actual user from MongoDB.
+// This middleware checks whether the user has a valid JWT,
+// loads the actual user from MongoDB, verifies the account is
+// still active, and verifies that the token belongs to the
+// user's current session version.
 const protect = async (req, res, next) => {
     try {
 
@@ -38,11 +40,6 @@ const protect = async (req, res, next) => {
         // 3. Check Bearer token format
         // ----------------------------------------------------
 
-        // Expected format:
-        //
-        // Authorization: Bearer <token>
-        //
-
         if (!authHeader.startsWith("Bearer ")) {
             return res.status(401).json({
                 message: "Invalid authorization format"
@@ -57,16 +54,16 @@ const protect = async (req, res, next) => {
         const token = authHeader.split(" ")[1];
 
 
+        if (!token) {
+            return res.status(401).json({
+                message: "Authentication required"
+            });
+        }
+
+
         // ----------------------------------------------------
         // 5. Verify the JWT
         // ----------------------------------------------------
-
-        // jwt.verify() checks:
-        // - Whether the token is valid
-        // - Whether it was signed using our JWT_SECRET
-        // - Whether it has expired
-        //
-        // If verification fails, an error is thrown.
 
         const decoded = jwt.verify(
             token,
@@ -86,11 +83,6 @@ const protect = async (req, res, next) => {
         // 7. Check whether the user still exists
         // ----------------------------------------------------
 
-        // The JWT could be valid even if the user was later
-        // deleted from the database.
-        //
-        // Therefore we check MongoDB as well.
-
         if (!user) {
             return res.status(401).json({
                 message: "User no longer exists"
@@ -99,34 +91,61 @@ const protect = async (req, res, next) => {
 
 
         // ----------------------------------------------------
-        // 8. Store the actual user in req.user
+        // 8. Check whether the account is still active
         // ----------------------------------------------------
 
-        // Controllers can now access the current user through:
-        //
-        // req.user
-        //
-        // Password is excluded because we used:
-        // .select("-password")
+        // A valid JWT must not be enough to access the account
+        // after an administrator deactivates the user.
+        if (!user.isActive) {
+            return res.status(401).json({
+                message: "Your account is inactive. Please contact support."
+            });
+        }
+
+
+        // ----------------------------------------------------
+        // 9. Check session version
+        // ----------------------------------------------------
+
+        // Older tokens are rejected after a password change,
+        // password reset, or account activation/deactivation.
+        // Tokens created before sessionVersion was introduced
+        // may not contain the field, so they are treated as
+        // version 0 for backwards compatibility.
+        const tokenSessionVersion =
+            Number.isInteger(decoded.sessionVersion)
+                ? decoded.sessionVersion
+                : 0;
+
+        const currentSessionVersion =
+            Number.isInteger(user.sessionVersion)
+                ? user.sessionVersion
+                : 0;
+
+        if (
+            tokenSessionVersion !==
+            currentSessionVersion
+        ) {
+            return res.status(401).json({
+                message: "Session expired. Please login again."
+            });
+        }
+
+
+        // ----------------------------------------------------
+        // 10. Store the actual user in req.user
+        // ----------------------------------------------------
 
         req.user = user;
 
 
         // ----------------------------------------------------
-        // 9. Continue to the protected controller
+        // 11. Continue to the protected controller
         // ----------------------------------------------------
 
         next();
 
     } catch (error) {
-
-        // JWT verification errors will end up here.
-        //
-        // Examples:
-        // - Invalid token
-        // - Expired token
-        // - Modified token
-        // - Wrong secret
 
         console.error(
             "Authentication error:",

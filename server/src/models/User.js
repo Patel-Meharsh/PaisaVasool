@@ -79,6 +79,25 @@ const userSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true
+        },
+
+
+        // ----------------------------------------------------
+        // SESSION VERSION
+        // ----------------------------------------------------
+        // Every time a security-sensitive account change happens
+        // (password change or account activation/deactivation),
+        // this value is increased.
+        //
+        // JWTs contain the version that was current when they were
+        // issued. authMiddleware compares the JWT version with the
+        // current database version, which lets us invalidate all
+        // previously issued tokens without storing every token.
+        // ----------------------------------------------------
+
+        sessionVersion: {
+            type: Number,
+            default: 0
         }
 
     },
@@ -93,7 +112,7 @@ const userSchema = new mongoose.Schema(
 
 
 // ============================================================
-// PASSWORD HASHING
+// PASSWORD HASHING + SESSION INVALIDATION
 // ============================================================
 
 userSchema.pre(
@@ -101,11 +120,26 @@ userSchema.pre(
     async function() {
 
         // ----------------------------------------------------
+        // Invalidate existing sessions when a security-sensitive
+        // field changes.
+        // ----------------------------------------------------
+
+        if (
+            !this.isNew &&
+            (
+                this.isModified("password") ||
+                this.isModified("isActive")
+            )
+        ) {
+
+            this.sessionVersion += 1;
+
+        }
+
+
+        // ----------------------------------------------------
         // If this password was already hashed before the User
         // document was created, don't hash it again.
-        //
-        // This is used only when converting a verified
-        // PendingRegistration into a real User.
         // ----------------------------------------------------
 
         if (

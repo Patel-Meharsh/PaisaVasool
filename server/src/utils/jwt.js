@@ -20,8 +20,14 @@ const generateToken = (user) => {
             email: user.email,
 
             // Store role for authorization later.
-            // For example: user / admin.
-            role: user.role
+            // For example: customer / admin.
+            role: user.role,
+
+            // Store the current session version.
+            // If the user's sessionVersion changes later,
+            // authMiddleware will reject this older token.
+            sessionVersion:
+                user.sessionVersion || 0
         },
 
         // Secret key used to sign the token.
