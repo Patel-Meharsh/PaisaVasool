@@ -1,8 +1,3 @@
-// ============================================================
-// ORDER CONTROLLER
-// Inventory-safe checkout and order queries.
-// ============================================================
-
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
@@ -12,7 +7,6 @@ const ONLINE_RESERVATION_MS = 15 * 60 * 1000;
 
 const releaseExpiredReservations = async () => {
     const now = new Date();
-
     const expiredOrders = await Order.find({
         paymentMethod: "online",
         status: "pending",
@@ -52,10 +46,6 @@ const releaseExpiredReservations = async () => {
 };
 
 
-// ============================================================
-// CREATE ORDER / CHECKOUT
-// ============================================================
-
 const createOrder = async (req, res) => {
     const reservedProducts = [];
     let createdOrder = null;
@@ -70,9 +60,7 @@ const createOrder = async (req, res) => {
         }
 
         if (!paymentMethod || !["cod", "online"].includes(paymentMethod)) {
-            return res.status(400).json({
-                message: "Invalid payment method"
-            });
+            return res.status(400).json({ message: "Invalid payment method" });
         }
 
         await releaseExpiredReservations();
@@ -82,9 +70,7 @@ const createOrder = async (req, res) => {
         }).populate("items.product");
 
         if (!cart || cart.items.length === 0) {
-            return res.status(400).json({
-                message: "Your cart is empty"
-            });
+            return res.status(400).json({ message: "Your cart is empty" });
         }
 
         let totalAmount = 0;
@@ -106,7 +92,6 @@ const createOrder = async (req, res) => {
             }
 
             totalAmount += product.price * item.quantity;
-
             orderItems.push({
                 product: product._id,
                 name: product.name,
@@ -116,12 +101,11 @@ const createOrder = async (req, res) => {
         }
 
         if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-            return res.status(400).json({
-                message: "Invalid order amount"
-            });
+            return res.status(400).json({ message: "Invalid order amount" });
         }
 
-        // Reserve inventory atomically for both COD and online orders.
+        // Atomic stock reservation prevents two customers from reserving
+        // the same final units concurrently.
         for (const item of cart.items) {
             const reserved = await Product.findOneAndUpdate(
                 {
@@ -129,9 +113,7 @@ const createOrder = async (req, res) => {
                     isActive: true,
                     stock: { $gte: item.quantity }
                 },
-                {
-                    $inc: { stock: -item.quantity }
-                },
+                { $inc: { stock: -item.quantity } },
                 { new: true }
             );
 
@@ -170,10 +152,12 @@ const createOrder = async (req, res) => {
                     : null
         });
 
-        cart.items = [];
-        await cart.save();
-
+        // Preserve the existing online-payment behaviour: the cart remains
+        // until Razorpay verification succeeds. COD can be cleared now.
         if (paymentMethod === "cod") {
+            cart.items = [];
+            await cart.save();
+
             try {
                 await sendOrderPlacedEmail(
                     req.user.email,
@@ -181,10 +165,7 @@ const createOrder = async (req, res) => {
                     createdOrder
                 );
             } catch (emailError) {
-                console.error(
-                    "Order email error:",
-                    emailError.message
-                );
+                console.error("Order email error:", emailError.message);
             }
         }
 
@@ -233,10 +214,7 @@ const createOrder = async (req, res) => {
 const getMyOrders = async (req, res) => {
     try {
         await releaseExpiredReservations();
-
-        const orders = await Order.find({
-            user: req.user._id
-        })
+        const orders = await Order.find({ user: req.user._id })
             .populate("items.product", "name images")
             .sort({ createdAt: -1 });
 
@@ -253,10 +231,8 @@ const getMyOrders = async (req, res) => {
 
 const getOrderById = async (req, res) => {
     try {
-        const { id } = req.params;
-
         const order = await Order.findOne({
-            _id: id,
+            _id: req.params.id,
             user: req.user._id
         }).populate("items.product", "name images");
 
@@ -278,7 +254,6 @@ const getOrderById = async (req, res) => {
 const getAllOrders = async (req, res) => {
     try {
         await releaseExpiredReservations();
-
         const orders = await Order.find()
             .populate("user", "name email")
             .populate("items.product", "name")
@@ -293,7 +268,6 @@ const getAllOrders = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-
 
 module.exports = {
     createOrder,
