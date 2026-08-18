@@ -1,0 +1,85 @@
+// ============================================================
+// PRODUCT QUERY VALIDATION
+// ============================================================
+
+// Product search is implemented with MongoDB regular expressions.
+// Escape user input so regex metacharacters cannot create expensive
+// or unintended patterns.
+const escapeRegex = (value) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+
+const validateProductQuery = (req, res, next) => {
+    const {
+        search,
+        minPrice,
+        maxPrice,
+        page,
+        limit
+    } = req.query;
+
+    if (search !== undefined) {
+        if (typeof search !== "string" || search.length > 100) {
+            return res.status(400).json({
+                message: "Search query is invalid or too long"
+            });
+        }
+
+        req.query.search = escapeRegex(search.trim());
+    }
+
+    const numericFields = [
+        ["minPrice", minPrice],
+        ["maxPrice", maxPrice]
+    ];
+
+    for (const [name, value] of numericFields) {
+        if (value === undefined || value === "") {
+            continue;
+        }
+
+        const number = Number(value);
+
+        if (!Number.isFinite(number) || number < 0) {
+            return res.status(400).json({
+                message: `${name} must be a valid non-negative number`
+            });
+        }
+    }
+
+    if (
+        minPrice !== undefined &&
+        maxPrice !== undefined &&
+        Number(minPrice) > Number(maxPrice)
+    ) {
+        return res.status(400).json({
+            message: "Minimum price cannot be greater than maximum price"
+        });
+    }
+
+    if (page !== undefined) {
+        const pageNumber = Number(page);
+        if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+            return res.status(400).json({
+                message: "Page must be a positive integer"
+            });
+        }
+    }
+
+    if (limit !== undefined) {
+        const limitNumber = Number(limit);
+        if (
+            !Number.isInteger(limitNumber) ||
+            limitNumber < 1 ||
+            limitNumber > 50
+        ) {
+            return res.status(400).json({
+                message: "Limit must be an integer between 1 and 50"
+            });
+        }
+    }
+
+    next();
+};
+
+module.exports = validateProductQuery;
