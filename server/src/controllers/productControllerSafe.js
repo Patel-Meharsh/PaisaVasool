@@ -3,12 +3,18 @@ const Product = require("../models/Product");
 const Category = require("../models/Category");
 const PriceAlert = require("../models/PriceAlert");
 
-const {
-    sendPriceDropAlertEmail
-} = require("../utils/sendEmail");
-
+const { sendPriceDropAlertEmail } = require("../utils/sendEmail");
 
 const processPriceAlerts = async (productId, newPrice) => {
+    const product = await Product.findById(productId).populate(
+        "category",
+        "name"
+    );
+
+    if (!product) return;
+
+    product.price = newPrice;
+
     const alerts = await PriceAlert.find({
         product: productId,
         isNotified: false,
@@ -16,13 +22,8 @@ const processPriceAlerts = async (productId, newPrice) => {
     }).populate("user", "name email");
 
     for (const alert of alerts) {
-        // Atomically claim the alert before sending. This prevents duplicate
-        // emails if two admin requests update the same product concurrently.
         const claimed = await PriceAlert.findOneAndUpdate(
-            {
-                _id: alert._id,
-                isNotified: false
-            },
+            { _id: alert._id, isNotified: false },
             {
                 $set: {
                     currentPrice: newPrice,
@@ -38,12 +39,10 @@ const processPriceAlerts = async (productId, newPrice) => {
             await sendPriceDropAlertEmail(
                 alert.user.email,
                 alert.user.name,
-                { ...alert.toObject(), price: newPrice },
+                product,
                 alert.targetPrice
             );
         } catch (emailError) {
-            // Allow a future product price change to retry if email delivery
-            // failed. The product update itself is never rolled back.
             await PriceAlert.findByIdAndUpdate(
                 alert._id,
                 {
@@ -61,7 +60,6 @@ const processPriceAlerts = async (productId, newPrice) => {
         }
     }
 };
-
 
 const createProduct = async (req, res) => {
     try {
@@ -105,7 +103,6 @@ const createProduct = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-
 
 const getProducts = async (req, res) => {
     try {
@@ -194,7 +191,6 @@ const getProducts = async (req, res) => {
     }
 };
 
-
 const getProductById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -221,7 +217,6 @@ const getProductById = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-
 
 const updateProduct = async (req, res) => {
     try {
@@ -255,15 +250,11 @@ const updateProduct = async (req, res) => {
             }
         }
 
-        if (updates.name !== undefined) {
-            updates.name = updates.name.trim();
-        }
+        if (updates.name !== undefined) updates.name = updates.name.trim();
         if (updates.description !== undefined) {
             updates.description = updates.description.trim();
         }
-        if (updates.brand !== undefined) {
-            updates.brand = updates.brand.trim();
-        }
+        if (updates.brand !== undefined) updates.brand = updates.brand.trim();
 
         if (updates.category !== undefined) {
             const existingCategory = await Category.findOne({
@@ -290,8 +281,6 @@ const updateProduct = async (req, res) => {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        // Price alert work is intentionally asynchronous. The admin's
-        // product update does not wait for hundreds/thousands of emails.
         if (
             updates.price !== undefined &&
             Number(updates.price) < Number(oldPrice)
@@ -316,7 +305,6 @@ const updateProduct = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-
 
 const deleteProduct = async (req, res) => {
     try {
@@ -344,7 +332,6 @@ const deleteProduct = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-
 
 module.exports = {
     createProduct,
