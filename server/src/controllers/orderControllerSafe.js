@@ -96,7 +96,10 @@ const createOrder = async (req, res) => {
                 product: product._id,
                 name: product.name,
                 price: product.price,
-                quantity: item.quantity
+                quantity: item.quantity,
+                images: Array.isArray(product.images)
+                    ? [...product.images]
+                    : []
             });
         }
 
@@ -256,7 +259,7 @@ const getAllOrders = async (req, res) => {
         await releaseExpiredReservations();
         const orders = await Order.find()
             .populate("user", "name email")
-            .populate("items.product", "name")
+            .populate("items.product", "name images")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
