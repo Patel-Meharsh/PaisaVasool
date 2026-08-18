@@ -44,8 +44,12 @@ const errorMiddleware =
 
 const {
     securityHeaders,
+    apiRateLimiter,
     authRateLimiter
 } = require("./src/middleware/securityMiddleware");
+
+const validateProductQuery =
+    require("./src/middleware/productQueryMiddleware");
 
 
 // ============================================================
@@ -56,15 +60,11 @@ app.use(securityHeaders);
 
 app.disable("x-powered-by");
 
-// When deployed behind a trusted reverse proxy, Express can
-// correctly determine the client IP for rate limiting.
 if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
 }
 
 
-// Keep the local development default while allowing deployment
-// to provide its own frontend origin through CLIENT_URL.
 const clientUrl =
     process.env.CLIENT_URL ||
     "http://localhost:5173";
@@ -81,6 +81,14 @@ app.use(
     express.json({
         limit: "10kb"
     })
+);
+
+
+// General API rate limiting. Authentication routes below also
+// receive their stricter authentication-specific limiter.
+app.use(
+    "/api",
+    apiRateLimiter
 );
 
 
@@ -127,6 +135,13 @@ app.use(
 app.use(
     "/api/categories",
     categoryRoutes
+);
+
+// Validate and escape product search/filter parameters before
+// productController builds MongoDB queries from them.
+app.use(
+    "/api/products",
+    validateProductQuery
 );
 
 app.use(
