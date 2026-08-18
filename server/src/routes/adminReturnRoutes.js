@@ -2,47 +2,29 @@
 // ADMIN RETURN ROUTES
 // ============================================================
 
-// Import Express
-
 const express = require("express");
-
 const router = express.Router();
 
-
-// ============================================================
-// IMPORT CONTROLLERS
-// ============================================================
 
 const {
     getReturnRequests,
     approveReturn,
-    rejectReturn,
-    processRefund
+    rejectReturn
 } = require("../controllers/adminReturnController");
 
+const {
+    processRefundSafely
+} = require("../controllers/adminRefundController");
 
-// ============================================================
-// AUTHENTICATION MIDDLEWARE
-// ============================================================
 
 const authMiddleware =
     require("../middleware/authMiddleware");
-
-
-// ============================================================
-// ADMIN AUTHORIZATION MIDDLEWARE
-// ============================================================
 
 const authorize =
     require("../middleware/roleMiddleware");
 
 
-// ============================================================
-// GET ALL RETURN REQUESTS
-// ============================================================
-
 // GET /api/admin/returns
-
 router.get(
     "/",
     authMiddleware,
@@ -51,12 +33,7 @@ router.get(
 );
 
 
-// ============================================================
-// APPROVE RETURN
-// ============================================================
-
 // PUT /api/admin/returns/:id/approve
-
 router.put(
     "/:id/approve",
     authMiddleware,
@@ -65,12 +42,7 @@ router.put(
 );
 
 
-// ============================================================
-// REJECT RETURN
-// ============================================================
-
 // PUT /api/admin/returns/:id/reject
-
 router.put(
     "/:id/reject",
     authMiddleware,
@@ -79,22 +51,13 @@ router.put(
 );
 
 
-// ============================================================
-// PROCESS REFUND
-// ============================================================
-
 // POST /api/admin/returns/:id/refund
-
 router.post(
     "/:id/refund",
     authMiddleware,
     authorize("admin"),
-    processRefund
+    processRefundSafely
 );
 
-
-// ============================================================
-// EXPORT ROUTER
-// ============================================================
 
 module.exports = router;
