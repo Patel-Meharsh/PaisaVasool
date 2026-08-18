@@ -1,10 +1,4 @@
-// Import mongoose
 const mongoose = require("mongoose");
-
-
-// ============================================================
-// ORDER ITEM SCHEMA
-// ============================================================
 
 const orderItemSchema = new mongoose.Schema(
     {
@@ -13,33 +7,26 @@ const orderItemSchema = new mongoose.Schema(
             ref: "Product",
             required: true
         },
-
-        name: {
-            type: String,
-            required: true
-        },
-
-        price: {
-            type: Number,
-            required: true,
-            min: 0
-        },
-
-        quantity: {
-            type: Number,
-            required: true,
-            min: 1
-        }
+        name: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+        quantity: { type: Number, required: true, min: 1 }
     },
-    {
-        _id: false
-    }
+    { _id: false }
 );
 
-
-// ============================================================
-// ORDER SCHEMA
-// ============================================================
+const returnItemSchema = new mongoose.Schema(
+    {
+        product: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Product",
+            required: true
+        },
+        name: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+        quantity: { type: Number, required: true, min: 1 }
+    },
+    { _id: false }
+);
 
 const orderSchema = new mongoose.Schema(
     {
@@ -48,46 +35,27 @@ const orderSchema = new mongoose.Schema(
             ref: "User",
             required: true
         },
-
         items: {
             type: [orderItemSchema],
             required: true
         },
-
         shippingAddress: {
-            fullName: {
-                type: String,
-                required: true
-            },
-            address: {
-                type: String,
-                required: true
-            },
-            city: {
-                type: String,
-                required: true
-            },
-            state: {
-                type: String,
-                required: true
-            },
-            postalCode: {
-                type: String,
-                required: true
-            },
+            fullName: { type: String, required: true },
+            address: { type: String, required: true },
+            city: { type: String, required: true },
+            state: { type: String, required: true },
+            postalCode: { type: String, required: true },
             country: {
                 type: String,
                 required: true,
                 default: "India"
             }
         },
-
         totalAmount: {
             type: Number,
             required: true,
             min: 0
         },
-
         status: {
             type: String,
             enum: [
@@ -99,7 +67,6 @@ const orderSchema = new mongoose.Schema(
             ],
             default: "pending"
         },
-
         paymentStatus: {
             type: String,
             enum: [
@@ -111,19 +78,25 @@ const orderSchema = new mongoose.Schema(
             ],
             default: "pending"
         },
-
         paymentMethod: {
             type: String,
-            enum: [
-                "cod",
-                "online"
-            ],
+            enum: ["cod", "online"],
             default: "cod"
         },
 
-        // ====================================================
-        // RAZORPAY PAYMENT INFORMATION
-        // ====================================================
+        // Inventory reservation used by both COD and online checkout.
+        inventoryReserved: {
+            type: Boolean,
+            default: false
+        },
+        inventoryReservedUntil: {
+            type: Date,
+            default: null
+        },
+        inventoryReleasedAt: {
+            type: Date,
+            default: null
+        },
 
         razorpayOrderId: {
             type: String,
@@ -131,33 +104,26 @@ const orderSchema = new mongoose.Schema(
             unique: true,
             sparse: true
         },
-
         razorpayPaymentId: {
             type: String,
             default: null,
             unique: true,
             sparse: true
         },
-
         razorpaySignature: {
             type: String,
             default: null
         },
-
-        // Timestamp used while a payment verification request is
-        // finalizing stock, cart and order state.
         paymentProcessingAt: {
             type: Date,
             default: null
         },
-
         razorpayRefundId: {
             type: String,
             default: null,
             unique: true,
             sparse: true
         },
-
         refundStatus: {
             type: String,
             enum: [
@@ -169,11 +135,15 @@ const orderSchema = new mongoose.Schema(
             ],
             default: "none"
         },
+        refundAmount: {
+            type: Number,
+            min: 0,
+            default: 0
+        },
 
         // ====================================================
         // RETURN INFORMATION
         // ====================================================
-
         returnStatus: {
             type: String,
             enum: [
@@ -185,32 +155,35 @@ const orderSchema = new mongoose.Schema(
             ],
             default: "none"
         },
-
         returnReason: {
             type: String,
             default: null
         },
-
+        returnItems: {
+            type: [returnItemSchema],
+            default: []
+        },
+        returnAmount: {
+            type: Number,
+            min: 0,
+            default: 0
+        },
+        inventoryRestocked: {
+            type: Boolean,
+            default: false
+        },
         returnRequestedAt: {
             type: Date,
             default: null
         },
-
         returnProcessedAt: {
             type: Date,
             default: null
         }
     },
-    {
-        timestamps: true
-    }
+    { timestamps: true }
 );
 
-
-const Order = mongoose.model(
-    "Order",
-    orderSchema
-);
-
+const Order = mongoose.model("Order", orderSchema);
 
 module.exports = Order;
