@@ -2,6 +2,7 @@
 // PAYMENT CONTROLLER
 // ============================================================
 
+const mongoose = require("mongoose");
 const razorpay = require("../utils/razorpay");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
@@ -21,9 +22,7 @@ const {
 // ============================================================
 
 const createRazorpayOrder = async (req, res) => {
-
     try {
-
         const { orderId } = req.body;
 
         if (!orderId) {
@@ -32,19 +31,22 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
 
         const order = await Order.findOne({
             _id: orderId,
             user: req.user._id
         });
 
-
         if (!order) {
             return res.status(404).json({
                 message: "Order not found"
             });
         }
-
 
         if (order.paymentMethod !== "online") {
             return res.status(400).json({
@@ -53,6 +55,11 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
+        if (order.status === "cancelled") {
+            return res.status(400).json({
+                message: "Cancelled orders cannot be paid"
+            });
+        }
 
         if (order.paymentStatus === "paid") {
             return res.status(400).json({
@@ -60,16 +67,13 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
-
         if (order.totalAmount <= 0) {
             return res.status(400).json({
                 message: "Invalid order amount"
             });
         }
 
-
         if (order.razorpayOrderId) {
-
             const existingRazorpayOrder =
                 await razorpay.orders.fetch(
                     order.razorpayOrderId
@@ -80,7 +84,7 @@ const createRazorpayOrder = async (req, res) => {
 
             if (
                 Number(existingRazorpayOrder.amount) !==
-                expectedAmount ||
+                    expectedAmount ||
                 existingRazorpayOrder.currency !== "INR"
             ) {
                 return res.status(409).json({
@@ -99,7 +103,6 @@ const createRazorpayOrder = async (req, res) => {
             });
         }
 
-
         const amountInPaise =
             Math.round(order.totalAmount * 100);
 
@@ -116,14 +119,10 @@ const createRazorpayOrder = async (req, res) => {
                 }
             });
 
-
-        order.razorpayOrderId =
-            razorpayOrder.id;
-
+        order.razorpayOrderId = razorpayOrder.id;
         order.paymentStatus = "pending";
 
         await order.save();
-
 
         return res.status(201).json({
             message:
@@ -136,7 +135,6 @@ const createRazorpayOrder = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(
             "Create Razorpay order error:",
             error.message
@@ -154,16 +152,13 @@ const createRazorpayOrder = async (req, res) => {
 // ============================================================
 
 const verifyRazorpayPayment = async (req, res) => {
-
     try {
-
         const {
             orderId,
             razorpayOrderId,
             razorpayPaymentId,
             razorpaySignature
         } = req.body;
-
 
         if (
             !orderId ||
@@ -177,9 +172,13 @@ const verifyRazorpayPayment = async (req, res) => {
             });
         }
 
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
 
         // Atomically claim the order for payment finalization.
-        // Only one request can move an unpaid order into processing.
         const order = await Order.findOneAndUpdate(
             {
                 _id: orderId,
@@ -199,9 +198,7 @@ const verifyRazorpayPayment = async (req, res) => {
             }
         );
 
-
         if (!order) {
-
             const existingOrder = await Order.findOne({
                 _id: orderId,
                 user: req.user._id
@@ -237,11 +234,6 @@ const verifyRazorpayPayment = async (req, res) => {
             });
         }
 
-
-        // --------------------------------------------------------
-        // Verify the Razorpay signature
-        // --------------------------------------------------------
-
         const isSignatureValid =
             validatePaymentVerification(
                 {
@@ -252,26 +244,15 @@ const verifyRazorpayPayment = async (req, res) => {
                 process.env.RAZORPAY_KEY_SECRET
             );
 
-
         if (!isSignatureValid) {
-
             order.paymentStatus = "failed";
             order.paymentProcessingAt = null;
-
             await order.save();
 
             return res.status(400).json({
                 message: "Payment verification failed"
             });
         }
-
-
-        // --------------------------------------------------------
-        // Ask Razorpay for the actual payment details.
-        // Signature verification alone is not enough: the backend
-        // must also verify the payment amount, currency, order and
-        // captured status before marking the order as paid.
-        // --------------------------------------------------------
 
         const payment =
             await razorpay.payments.fetch(
@@ -281,17 +262,14 @@ const verifyRazorpayPayment = async (req, res) => {
         const expectedAmount =
             Math.round(order.totalAmount * 100);
 
-
         if (
             payment.order_id !== order.razorpayOrderId ||
             Number(payment.amount) !== expectedAmount ||
             payment.currency !== "INR" ||
             payment.status !== "captured"
         ) {
-
             order.paymentStatus = "failed";
             order.paymentProcessingAt = null;
-
             await order.save();
 
             return res.status(400).json({
@@ -300,15 +278,9 @@ const verifyRazorpayPayment = async (req, res) => {
             });
         }
 
-
-        // --------------------------------------------------------
-        // Reduce stock atomically
-        // --------------------------------------------------------
-
         const updatedProducts = [];
 
         for (const item of order.items) {
-
             const updatedProduct =
                 await Product.findOneAndUpdate(
                     {
@@ -328,12 +300,8 @@ const verifyRazorpayPayment = async (req, res) => {
                     }
                 );
 
-
             if (!updatedProduct) {
-
-                // Roll back stock already reduced in this request.
                 for (const updatedItem of updatedProducts) {
-
                     await Product.findByIdAndUpdate(
                         updatedItem.productId,
                         {
@@ -344,11 +312,7 @@ const verifyRazorpayPayment = async (req, res) => {
                     );
                 }
 
-
-                // The payment was captured, so try to refund it rather
-                // than marking a successfully captured payment as failed.
                 try {
-
                     const refund =
                         await razorpay.payments.refund(
                             razorpayPaymentId,
@@ -365,21 +329,16 @@ const verifyRazorpayPayment = async (req, res) => {
 
                     order.razorpayPaymentId =
                         razorpayPaymentId;
-
                     order.razorpaySignature =
                         razorpaySignature;
-
                     order.razorpayRefundId =
                         refund.id;
-
                     order.paymentStatus =
                         "refunded";
-
                     order.refundStatus =
                         refund.status === "processed"
                             ? "processed"
                             : "initiated";
-
                     order.status = "cancelled";
                     order.paymentProcessingAt = null;
 
@@ -391,13 +350,10 @@ const verifyRazorpayPayment = async (req, res) => {
                     });
 
                 } catch (refundError) {
-
                     order.razorpayPaymentId =
                         razorpayPaymentId;
-
                     order.razorpaySignature =
                         razorpaySignature;
-
                     order.paymentStatus = "paid";
                     order.refundStatus = "failed";
                     order.paymentProcessingAt = null;
@@ -411,30 +367,20 @@ const verifyRazorpayPayment = async (req, res) => {
                 }
             }
 
-
             updatedProducts.push({
                 productId: item.product,
                 quantity: item.quantity
             });
         }
 
-
-        // --------------------------------------------------------
-        // Clear the cart only if it still exactly matches the order
-        // snapshot. If the user changed the cart while paying, do
-        // not delete those newer cart changes.
-        // --------------------------------------------------------
-
         const cart = await Cart.findOne({
             user: req.user._id
         });
 
         if (cart) {
-
             const orderSnapshot = order.items
                 .map(item => ({
-                    product:
-                        item.product.toString(),
+                    product: item.product.toString(),
                     quantity: item.quantity
                 }))
                 .sort((a, b) =>
@@ -443,8 +389,7 @@ const verifyRazorpayPayment = async (req, res) => {
 
             const cartSnapshot = cart.items
                 .map(item => ({
-                    product:
-                        item.product.toString(),
+                    product: item.product.toString(),
                     quantity: item.quantity
                 }))
                 .sort((a, b) =>
@@ -461,40 +406,28 @@ const verifyRazorpayPayment = async (req, res) => {
             }
         }
 
-
-        // --------------------------------------------------------
-        // Finalize order
-        // --------------------------------------------------------
-
         order.razorpayPaymentId =
             razorpayPaymentId;
-
         order.razorpaySignature =
             razorpaySignature;
-
         order.paymentStatus = "paid";
         order.status = "confirmed";
         order.paymentProcessingAt = null;
 
         await order.save();
 
-
         try {
-
             await sendOrderPlacedEmail(
                 req.user.email,
                 req.user.name,
                 order
             );
-
         } catch (emailError) {
-
             console.error(
                 "Order email error:",
                 emailError.message
             );
         }
-
 
         return res.status(200).json({
             message:
@@ -511,7 +444,6 @@ const verifyRazorpayPayment = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(
             "Payment verification error:",
             error.message
@@ -524,10 +456,6 @@ const verifyRazorpayPayment = async (req, res) => {
     }
 };
 
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = {
     createRazorpayOrder,
