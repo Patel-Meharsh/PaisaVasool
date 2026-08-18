@@ -12,6 +12,17 @@ const protect = require("../middleware/authMiddleware");
 
 
 // ============================================================
+// VALIDATION
+// ============================================================
+
+const validate = require("../validators/validationMiddleware");
+const {
+    profileSchema,
+    changePasswordSchema
+} = require("../validators/profileValidator");
+
+
+// ============================================================
 // PROFILE CONTROLLERS
 // ============================================================
 
@@ -60,17 +71,12 @@ const upload = multer({
 // IMAGE SIGNATURE VALIDATION
 // ============================================================
 
-// MIME type is supplied by the client and therefore cannot be
-// trusted by itself. Check the actual file signature before the
-// buffer is sent to Cloudinary.
 const hasValidImageSignature = (buffer, mimetype) => {
     if (!buffer || buffer.length < 12) {
         return false;
     }
 
-    if (
-        mimetype === "image/jpeg"
-    ) {
+    if (mimetype === "image/jpeg") {
         return (
             buffer[0] === 0xff &&
             buffer[1] === 0xd8 &&
@@ -78,9 +84,7 @@ const hasValidImageSignature = (buffer, mimetype) => {
         );
     }
 
-    if (
-        mimetype === "image/png"
-    ) {
+    if (mimetype === "image/png") {
         return (
             buffer[0] === 0x89 &&
             buffer[1] === 0x50 &&
@@ -93,9 +97,7 @@ const hasValidImageSignature = (buffer, mimetype) => {
         );
     }
 
-    if (
-        mimetype === "image/webp"
-    ) {
+    if (mimetype === "image/webp") {
         return (
             buffer.toString("ascii", 0, 4) === "RIFF" &&
             buffer.toString("ascii", 8, 12) === "WEBP"
@@ -124,6 +126,7 @@ router.get(
 router.put(
     "/profile",
     protect,
+    validate(profileSchema),
     updateProfile
 );
 
@@ -135,6 +138,7 @@ router.put(
 router.put(
     "/profile/password",
     protect,
+    validate(changePasswordSchema),
     changePassword
 );
 
