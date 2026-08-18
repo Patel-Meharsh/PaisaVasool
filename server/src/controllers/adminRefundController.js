@@ -1,10 +1,36 @@
 // ============================================================
 // ADMIN REFUND CONTROLLER
-// Safe Razorpay refund processing for approved returns.
+// Safe, idempotent refunds for approved returns.
+// Supports full-order returns and item-level return amounts.
 // ============================================================
 
 const Order = require("../models/Order");
+const Product = require("../models/Product");
 const razorpay = require("../utils/razorpay");
+
+
+const restockReturnedItems = async (order) => {
+    if (order.inventoryRestocked) return;
+
+    const items =
+        order.returnItems && order.returnItems.length > 0
+            ? order.returnItems
+            : order.items;
+
+    for (const item of items) {
+        await Product.findOneAndUpdate(
+            {
+                _id: item.product,
+                isActive: true
+            },
+            {
+                $inc: { stock: item.quantity }
+            }
+        );
+    }
+
+    order.inventoryRestocked = true;
+};
 
 
 const processRefundSafely = async (req, res) => {
@@ -21,22 +47,16 @@ const processRefundSafely = async (req, res) => {
                 razorpayRefundId: null
             },
             {
-                $set: {
-                    refundStatus: "pending"
-                }
+                $set: { refundStatus: "pending" }
             },
-            {
-                new: true
-            }
+            { new: true }
         );
 
         if (!order) {
             const existingOrder = await Order.findById(id);
 
             if (!existingOrder) {
-                return res.status(404).json({
-                    message: "Order not found"
-                });
+                return res.status(404).json({ message: "Order not found" });
             }
 
             if (existingOrder.paymentStatus === "refunded") {
@@ -53,53 +73,67 @@ const processRefundSafely = async (req, res) => {
             }
 
             return res.status(400).json({
-                message:
-                    "Order is not eligible for a new refund"
+                message: "Order is not eligible for a new refund"
             });
         }
-
 
         if (!order.razorpayPaymentId) {
             order.refundStatus = "failed";
             await order.save();
-
             return res.status(400).json({
                 message: "Razorpay payment ID not found"
             });
         }
 
+        const refundAmountRupees =
+            order.returnAmount > 0
+                ? order.returnAmount
+                : order.totalAmount;
+
+        const refundAmount =
+            Math.round(refundAmountRupees * 100);
+
+        if (refundAmount <= 0 || refundAmount > Math.round(order.totalAmount * 100)) {
+            order.refundStatus = "failed";
+            await order.save();
+            return res.status(400).json({
+                message: "Invalid refund amount"
+            });
+        }
 
         try {
             const refund = await razorpay.payments.refund(
                 order.razorpayPaymentId,
                 {
-                    amount:
-                        Math.round(order.totalAmount * 100),
+                    amount: refundAmount,
                     notes: {
-                        paisaVasoolOrderId:
-                            order._id.toString(),
-                        reason:
-                            order.returnReason ||
-                            "Customer return"
+                        paisaVasoolOrderId: order._id.toString(),
+                        reason: order.returnReason || "Customer return"
                     },
-                    receipt:
-                        `RETURN_REFUND_${order._id}`
+                    receipt: `RETURN_REFUND_${order._id}`
                 }
             );
 
             order.razorpayRefundId = refund.id;
-
+            order.refundAmount = refundAmountRupees;
             order.refundStatus =
                 refund.status === "processed"
                     ? "processed"
                     : "initiated";
 
             if (refund.status === "processed") {
-                order.paymentStatus = "refunded";
+                order.paymentStatus =
+                    refundAmountRupees >= order.totalAmount
+                        ? "refunded"
+                        : "paid";
+
+                // Restock only after Razorpay confirms the refund. This is
+                // idempotent and prevents duplicate inventory restoration.
+                await restockReturnedItems(order);
+                order.returnStatus = "received";
             }
 
             order.returnProcessedAt = new Date();
-
             await order.save();
 
             return res.status(200).json({
@@ -117,7 +151,8 @@ const processRefundSafely = async (req, res) => {
                     orderId: order._id,
                     paymentStatus: order.paymentStatus,
                     refundStatus: order.refundStatus,
-                    returnStatus: order.returnStatus
+                    returnStatus: order.returnStatus,
+                    refundAmount: order.refundAmount
                 }
             });
 
@@ -139,10 +174,7 @@ const processRefundSafely = async (req, res) => {
         }
 
     } catch (error) {
-        console.error(
-            "Admin refund error:",
-            error.message
-        );
+        console.error("Admin refund error:", error.message);
 
         if (error.name === "CastError") {
             return res.status(400).json({
