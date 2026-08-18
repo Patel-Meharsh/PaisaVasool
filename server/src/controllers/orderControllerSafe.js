@@ -6,17 +6,9 @@
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
-
-const {
-    sendOrderPlacedEmail
-} = require("../utils/sendEmail");
+const { sendOrderPlacedEmail } = require("../utils/sendEmail");
 
 const ONLINE_RESERVATION_MS = 15 * 60 * 1000;
-
-
-// ============================================================
-// RELEASE EXPIRED ONLINE RESERVATIONS
-// ============================================================
 
 const releaseExpiredReservations = async () => {
     const now = new Date();
@@ -129,9 +121,7 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Reserve stock atomically for BOTH COD and online orders.
-        // This closes the race where two customers could both pay for the
-        // final unit. Online reservations expire after 15 minutes.
+        // Reserve inventory atomically for both COD and online orders.
         for (const item of cart.items) {
             const reserved = await Product.findOneAndUpdate(
                 {
@@ -207,8 +197,6 @@ const createOrder = async (req, res) => {
         });
 
     } catch (error) {
-        // Compensating rollback protects inventory when order/cart creation
-        // fails after stock has already been reserved.
         for (const reserved of reservedProducts) {
             try {
                 await Product.findByIdAndUpdate(
@@ -217,8 +205,7 @@ const createOrder = async (req, res) => {
                 );
             } catch (rollbackError) {
                 console.error(
-                    "Order stock rollback error:
-",
+                    "Order stock rollback error:",
                     rollbackError.message
                 );
             }
@@ -236,17 +223,12 @@ const createOrder = async (req, res) => {
         }
 
         console.error("Create order error:", error.message);
-
         return res.status(500).json({
             message: "Server error while creating order"
         });
     }
 };
 
-
-// ============================================================
-// GET MY ORDERS
-// ============================================================
 
 const getMyOrders = async (req, res) => {
     try {
@@ -262,19 +244,12 @@ const getMyOrders = async (req, res) => {
             message: "Orders fetched successfully",
             orders
         });
-
     } catch (error) {
         console.error("Get my orders error:", error.message);
-        return res.status(500).json({
-            message: "Server error"
-        });
+        return res.status(500).json({ message: "Server error" });
     }
 };
 
-
-// ============================================================
-// GET SINGLE ORDER
-// ============================================================
 
 const getOrderById = async (req, res) => {
     try {
@@ -286,28 +261,19 @@ const getOrderById = async (req, res) => {
         }).populate("items.product", "name images");
 
         if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
+            return res.status(404).json({ message: "Order not found" });
         }
 
         return res.status(200).json({
             message: "Order fetched successfully",
             order
         });
-
     } catch (error) {
         console.error("Get order error:", error.message);
-        return res.status(500).json({
-            message: "Server error"
-        });
+        return res.status(500).json({ message: "Server error" });
     }
 };
 
-
-// ============================================================
-// ADMIN - GET ALL ORDERS
-// ============================================================
 
 const getAllOrders = async (req, res) => {
     try {
@@ -322,12 +288,9 @@ const getAllOrders = async (req, res) => {
             message: "All orders fetched successfully",
             orders
         });
-
     } catch (error) {
         console.error("Get all orders error:", error.message);
-        return res.status(500).json({
-            message: "Server error"
-        });
+        return res.status(500).json({ message: "Server error" });
     }
 };
 
