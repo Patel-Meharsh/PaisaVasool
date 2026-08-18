@@ -7,68 +7,63 @@ const router = express.Router();
 // IMPORT MIDDLEWARE
 // ============================================================
 
-// Authentication middleware
 const protect = require("../middleware/authMiddleware");
-
-// Authorization middleware
 const authorize = require("../middleware/roleMiddleware");
+const validate = require("../validators/validationMiddleware");
 
 
 // ============================================================
 // IMPORT CONTROLLERS
 // ============================================================
 
-const {createCategory,getCategories, getCategoryById, updateCategory, deleteCategory} = require("../controllers/categoryController");
+const {
+    createCategory,
+    getCategories,
+    getCategoryById,
+    updateCategory,
+    deleteCategory
+} = require("../controllers/categoryController");
 
-const validate = require("../validators/validationMiddleware");
-
-const {categorySchema} = require("../validators/categoryValidator");
+const { categorySchema } = require("../validators/categoryValidator");
 
 
 // ============================================================
 // PUBLIC ROUTES
 // ============================================================
 
-// Anyone can view active categories.
+router.get(
+    "/",
+    getCategories
+);
 
-// GET /api/categories
-router.get("/", getCategories);
-
-// GET /api/categories/:id
-router.get("/:id", getCategoryById);
+router.get(
+    "/:id",
+    getCategoryById
+);
 
 
 // ============================================================
 // ADMIN ROUTES
 // ============================================================
 
-// Only authenticated admins can create categories.
-
-// POST /api/categories
+// Validation MUST run before the controller so invalid input
+// never reaches the database layer.
 router.post(
     "/",
     protect,
     authorize("admin"),
-    createCategory,
-    validate(categorySchema)
+    validate(categorySchema),
+    createCategory
 );
 
-
-// Only authenticated admins can update categories.
-
-// PUT /api/categories/:id
 router.put(
     "/:id",
     protect,
     authorize("admin"),
-    updateCategory,
-    validate(categorySchema)
+    validate(categorySchema),
+    updateCategory
 );
 
-
-// Only authenticated admins can delete categories.
-
-// DELETE /api/categories/:id
 router.delete(
     "/:id",
     protect,
