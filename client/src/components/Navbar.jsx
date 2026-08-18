@@ -15,72 +15,39 @@ function Navbar() {
 
 
     // ============================================================
-    // SHOP
-    // ============================================================
-
-    const handleShop = (event) => {
-
-        event.preventDefault();
-
-        navigate("/");
-
-        setTimeout(() => {
-
-            const bestsellerSection =
-                document.getElementById("bestsellers");
-
-            if (bestsellerSection) {
-
-                bestsellerSection.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
-            }
-
-        }, 150);
-    };
-
-
-    // ============================================================
     // LOGOUT
     // ============================================================
 
     const handleLogout = async () => {
+        const currentToken = localStorage.getItem("token");
 
-        const currentToken =
-            localStorage.getItem("token");
-
-        // Ask the server to invalidate the JWT session first.
-        // Local cleanup still happens even if the request fails.
-        if (currentToken) {
-
-            try {
-
+        try {
+            // Invalidate the JWT on the server before removing the
+            // browser copy. If the request fails, local logout still
+            // happens in finally below.
+            if (currentToken) {
                 await fetch(
                     "http://localhost:5000/api/auth/logout",
                     {
                         method: "POST",
                         headers: {
-                            Authorization:
-                                `Bearer ${currentToken}`
+                            Authorization: `Bearer ${currentToken}`
                         }
                     }
                 );
-
-            } catch (error) {
-
-                console.error(
-                    "Logout request error:",
-                    error
-                );
             }
+        } catch (error) {
+            console.error(
+                "Server logout error:",
+                error
+            );
+        } finally {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+
+            navigate("/");
+            window.location.reload();
         }
-
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        navigate("/");
-        window.location.reload();
     };
 
 
@@ -89,7 +56,6 @@ function Navbar() {
     // ============================================================
 
     const handleSearch = (event) => {
-
         event.preventDefault();
 
         if (!search.trim()) {
@@ -109,35 +75,26 @@ function Navbar() {
     // ============================================================
 
     return (
-
         <header className="site-header">
 
             <div className="navbar">
 
                 <div className="navbar-logo">
-
                     <Link to="/">
-
                         <img
                             src="/PaisaVasool.png"
                             alt="PaisaVasool"
                         />
-
                     </Link>
-
                 </div>
 
 
                 <nav className="navbar-menu">
-
                     <Link to="/">
                         Home
                     </Link>
 
-                    <Link
-                        to="/"
-                        onClick={handleShop}
-                    >
+                    <Link to="/#bestsellers">
                         Shop
                     </Link>
 
@@ -146,21 +103,16 @@ function Navbar() {
                     </Link>
 
                     {token && (
-
                         <Link to="/orders">
                             Orders
                         </Link>
-
                     )}
 
                     {token && (
-
                         <Link to="/price-alerts">
                             Price Alerts
                         </Link>
-
                     )}
-
                 </nav>
 
 
@@ -170,7 +122,6 @@ function Navbar() {
                         className="navbar-search"
                         onSubmit={handleSearch}
                     >
-
                         <input
                             type="text"
                             placeholder="Search products..."
@@ -178,28 +129,26 @@ function Navbar() {
                             onChange={(event) =>
                                 setSearch(event.target.value)
                             }
+                            autoComplete="off"
                         />
 
                         <button type="submit">
-                            <span>⌕</span>
+                            <span>
+                                ⌕
+                            </span>
                         </button>
-
                     </form>
 
 
                     {token ? (
-
                         <>
-
                             <Link
                                 to="/cart"
                                 className="nav-icon"
                                 title="Cart"
-                                aria-label="Cart"
                             >
                                 🛒
                             </Link>
-
 
                             <Link
                                 to="/profile"
@@ -207,7 +156,6 @@ function Navbar() {
                                 title="Profile"
                                 aria-label="Profile"
                             >
-
                                 <svg
                                     width="30"
                                     height="40"
@@ -215,7 +163,6 @@ function Navbar() {
                                     fill="none"
                                     xmlns="http://www.w3.org/2000/svg"
                                 >
-
                                     <circle
                                         cx="12"
                                         cy="8"
@@ -230,23 +177,17 @@ function Navbar() {
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
-
                                 </svg>
-
                             </Link>
 
-
                             {user?.role === "admin" && (
-
                                 <Link
                                     to="/admin"
                                     className="nav-admin"
                                 >
                                     Admin
                                 </Link>
-
                             )}
-
 
                             <button
                                 className="nav-login-button"
@@ -254,13 +195,9 @@ function Navbar() {
                             >
                                 Logout
                             </button>
-
                         </>
-
                     ) : (
-
                         <>
-
                             <Link
                                 to="/login"
                                 className="nav-login-button"
@@ -274,15 +211,10 @@ function Navbar() {
                             >
                                 Register
                             </Link>
-
                         </>
-
                     )}
-
                 </div>
-
             </div>
-
         </header>
     );
 }
