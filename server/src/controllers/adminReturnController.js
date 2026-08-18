@@ -1,11 +1,6 @@
-// ============================================================
-// ADMIN RETURN CONTROLLER
-// ============================================================
+const mongoose = require("mongoose");
 
-// Import Order model
 const Order = require("../models/Order");
-
-// Import Razorpay instance
 const razorpay = require("../utils/razorpay");
 
 const {
@@ -13,28 +8,13 @@ const {
     sendReturnRejectedEmail
 } = require("../utils/sendEmail");
 
+
 // ============================================================
 // ADMIN - GET RETURN REQUESTS
 // ============================================================
 
 const getReturnRequests = async (req, res) => {
     try {
-
-        // ----------------------------------------------------
-        // Make sure only admins can access this
-        // ----------------------------------------------------
-
-        if (req.user.role !== "admin") {
-            return res.status(403).json({
-                message: "Admin access required"
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Find all orders where return was requested
-        // ----------------------------------------------------
-
         const orders = await Order.find({
             returnStatus: {
                 $in: [
@@ -48,18 +28,12 @@ const getReturnRequests = async (req, res) => {
             .populate("user", "name email")
             .populate("items.product", "name");
 
-
-        // ----------------------------------------------------
-        // Send response
-        // ----------------------------------------------------
-
         res.status(200).json({
             message: "Return requests fetched successfully",
             returns: orders
         });
 
     } catch (error) {
-
         console.error(
             "Get return requests error:",
             error.message
@@ -78,66 +52,50 @@ const getReturnRequests = async (req, res) => {
 
 const approveReturn = async (req, res) => {
     try {
+        const { id } = req.params;
 
-        // ----------------------------------------------------
-        // Admin authorization
-        // ----------------------------------------------------
-
-        if (req.user.role !== "admin") {
-            return res.status(403).json({
-                message: "Admin access required"
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
             });
         }
 
-
-        // ----------------------------------------------------
-        // Get order ID
-        // ----------------------------------------------------
-
-        const { id } = req.params;
-
-
-        // ----------------------------------------------------
-        // Find order
-        // ----------------------------------------------------
-
-        const order = await Order.findById(id)
-        .populate(
+        // Atomically claim the requested state so two admins cannot
+        // both approve the same return concurrently.
+        const order = await Order.findOneAndUpdate(
+            {
+                _id: id,
+                returnStatus: "requested"
+            },
+            {
+                $set: {
+                    returnStatus: "approved",
+                    returnProcessedAt: new Date()
+                }
+            },
+            {
+                new: true
+            }
+        ).populate(
             "user",
             "name email"
         );
 
-
         if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
+            const existingOrder = await Order.findById(id)
+                .select("returnStatus");
 
+            if (!existingOrder) {
+                return res.status(404).json({
+                    message: "Order not found"
+                });
+            }
 
-        // ----------------------------------------------------
-        // Return must be in requested state
-        // ----------------------------------------------------
-
-        if (order.returnStatus !== "requested") {
-            return res.status(400).json({
+            return res.status(409).json({
                 message:
-                    "This return request cannot be approved"
+                    "This return request has already been processed"
             });
         }
-
-
-        // ----------------------------------------------------
-        // Approve return
-        // ----------------------------------------------------
-
-        order.returnStatus = "approved";
-
-        order.returnProcessedAt = new Date();
-
-
-        await order.save();
-
 
         try {
             await sendReturnApprovedEmail(
@@ -152,32 +110,29 @@ const approveReturn = async (req, res) => {
             );
         }
 
-
-        // ----------------------------------------------------
-        // Response
-        // ----------------------------------------------------
-
-        res.status(200).json({
-
+        return res.status(200).json({
             message:
                 "Return request approved successfully",
-
             order: {
                 orderId: order._id,
                 returnStatus: order.returnStatus,
                 returnReason: order.returnReason
             }
-
         });
 
     } catch (error) {
-
         console.error(
             "Approve return error:",
             error.message
         );
 
-        res.status(500).json({
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -190,65 +145,50 @@ const approveReturn = async (req, res) => {
 
 const rejectReturn = async (req, res) => {
     try {
+        const { id } = req.params;
 
-        // ----------------------------------------------------
-        // Admin authorization
-        // ----------------------------------------------------
-
-        if (req.user.role !== "admin") {
-            return res.status(403).json({
-                message: "Admin access required"
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
             });
         }
 
-
-        // ----------------------------------------------------
-        // Get order ID
-        // ----------------------------------------------------
-
-        const { id } = req.params;
-
-
-        // ----------------------------------------------------
-        // Find order
-        // ----------------------------------------------------
-
-        const order = await Order.findById(id)
-        .populate(
+        // Atomically claim the requested state so two admins cannot
+        // approve/reject the same return at the same time.
+        const order = await Order.findOneAndUpdate(
+            {
+                _id: id,
+                returnStatus: "requested"
+            },
+            {
+                $set: {
+                    returnStatus: "rejected",
+                    returnProcessedAt: new Date()
+                }
+            },
+            {
+                new: true
+            }
+        ).populate(
             "user",
             "name email"
         );
 
-
         if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
+            const existingOrder = await Order.findById(id)
+                .select("returnStatus");
 
+            if (!existingOrder) {
+                return res.status(404).json({
+                    message: "Order not found"
+                });
+            }
 
-        // ----------------------------------------------------
-        // Return must be in requested state
-        // ----------------------------------------------------
-
-        if (order.returnStatus !== "requested") {
-            return res.status(400).json({
+            return res.status(409).json({
                 message:
-                    "This return request cannot be rejected"
+                    "This return request has already been processed"
             });
         }
-
-
-        // ----------------------------------------------------
-        // Reject return
-        // ----------------------------------------------------
-
-        order.returnStatus = "rejected";
-
-        order.returnProcessedAt = new Date();
-
-
-        await order.save();
 
         try {
             await sendReturnRejectedEmail(
@@ -263,32 +203,29 @@ const rejectReturn = async (req, res) => {
             );
         }
 
-
-        // ----------------------------------------------------
-        // Response
-        // ----------------------------------------------------
-
-        res.status(200).json({
-
+        return res.status(200).json({
             message:
                 "Return request rejected successfully",
-
             order: {
                 orderId: order._id,
                 returnStatus: order.returnStatus,
                 returnReason: order.returnReason
             }
-
         });
 
     } catch (error) {
-
         console.error(
             "Reject return error:",
             error.message
         );
 
-        res.status(500).json({
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -296,240 +233,143 @@ const rejectReturn = async (req, res) => {
 
 
 // ============================================================
-// ADMIN - PROCESS RAZORPAY REFUND
+// LEGACY REFUND CONTROLLER
 // ============================================================
+// Kept for compatibility with any older imports. The active route
+// uses adminRefundController.processRefundSafely, which is atomic.
 
 const processRefund = async (req, res) => {
     try {
-
-        // ----------------------------------------------------
-        // Admin authorization
-        // ----------------------------------------------------
-
-        if (req.user.role !== "admin") {
-            return res.status(403).json({
-                message: "Admin access required"
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Get order ID
-        // ----------------------------------------------------
-
         const { id } = req.params;
 
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
+        }
 
-        // ----------------------------------------------------
-        // Find order
-        // ----------------------------------------------------
-
-        const order = await Order.findById(id);
-
+        const order = await Order.findOne({
+            _id: id,
+            returnStatus: "approved",
+            paymentMethod: "online",
+            paymentStatus: "paid"
+        });
 
         if (!order) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Return must be approved first
-        // ----------------------------------------------------
-
-        if (order.returnStatus !== "approved") {
             return res.status(400).json({
-                message:
-                    "Return must be approved before refund"
+                message: "Order is not eligible for refund"
             });
         }
-
-
-        // ----------------------------------------------------
-        // Only online paid orders can be refunded through
-        // Razorpay.
-        // ----------------------------------------------------
-
-        if (order.paymentMethod !== "online") {
-            return res.status(400).json({
-                message:
-                    "Razorpay refund is only available for online payments"
-            });
-        }
-
-
-        if (order.paymentStatus !== "paid") {
-            return res.status(400).json({
-                message:
-                    "Only paid orders can be refunded"
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Make sure Razorpay payment ID exists
-        // ----------------------------------------------------
-
-        if (!order.razorpayPaymentId) {
-            return res.status(400).json({
-                message:
-                    "Razorpay payment ID not found"
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Prevent duplicate refund
-        // ----------------------------------------------------
 
         if (
-            order.refundStatus === "processed" ||
-            order.paymentStatus === "refunded"
+            order.refundStatus !== "none" ||
+            order.razorpayRefundId
         ) {
-            return res.status(400).json({
+            return res.status(409).json({
                 message:
-                    "Refund has already been processed"
+                    "This order already has a refund operation in progress or completed"
             });
         }
 
+        const claimedOrder = await Order.findOneAndUpdate(
+            {
+                _id: id,
+                refundStatus: "none",
+                razorpayRefundId: null
+            },
+            {
+                $set: {
+                    refundStatus: "pending"
+                }
+            },
+            {
+                new: true
+            }
+        );
 
-        // ----------------------------------------------------
-        // Mark refund as pending
-        // ----------------------------------------------------
+        if (!claimedOrder) {
+            return res.status(409).json({
+                message:
+                    "This refund is already being processed"
+            });
+        }
 
-        order.refundStatus = "pending";
-
-        await order.save();
-
-
-        // ----------------------------------------------------
-        // Create Razorpay refund
-        // ----------------------------------------------------
-
-        const refund =
-            await razorpay.payments.refund(
-                order.razorpayPaymentId,
+        try {
+            const refund = await razorpay.payments.refund(
+                claimedOrder.razorpayPaymentId,
                 {
                     amount:
                         Math.round(
-                            order.totalAmount * 100
+                            claimedOrder.totalAmount * 100
                         ),
-
                     notes: {
                         paisaVasoolOrderId:
-                            order._id.toString(),
-
+                            claimedOrder._id.toString(),
                         reason:
-                            order.returnReason ||
+                            claimedOrder.returnReason ||
                             "Customer return"
-                    }
+                    },
+                    receipt:
+                        `RETURN_REFUND_${claimedOrder._id}`
                 }
             );
 
+            claimedOrder.razorpayRefundId = refund.id;
+            claimedOrder.refundStatus =
+                refund.status === "processed"
+                    ? "processed"
+                    : "initiated";
 
-        // ----------------------------------------------------
-        // Save refund information
-        // ----------------------------------------------------
-
-        order.razorpayRefundId =
-            refund.id;
-
-        order.refundStatus =
-            "processed";
-
-        order.paymentStatus =
-            "refunded";
-
-        order.returnProcessedAt =
-            new Date();
-
-
-        await order.save();
-
-
-        // ----------------------------------------------------
-        // Send response
-        // ----------------------------------------------------
-
-        res.status(200).json({
-
-            message:
-                "Refund processed successfully",
-
-            refund: {
-                refundId:
-                    refund.id,
-
-                amount:
-                    refund.amount,
-
-                currency:
-                    refund.currency,
-
-                status:
-                    refund.status
-            },
-
-            order: {
-                orderId:
-                    order._id,
-
-                paymentStatus:
-                    order.paymentStatus,
-
-                refundStatus:
-                    order.refundStatus,
-
-                returnStatus:
-                    order.returnStatus
+            if (refund.status === "processed") {
+                claimedOrder.paymentStatus = "refunded";
             }
 
-        });
+            claimedOrder.returnProcessedAt = new Date();
+            await claimedOrder.save();
+
+            return res.status(200).json({
+                message:
+                    refund.status === "processed"
+                        ? "Refund processed successfully"
+                        : "Refund initiated successfully",
+                refund: {
+                    refundId: refund.id,
+                    amount: refund.amount,
+                    currency: refund.currency,
+                    status: refund.status
+                }
+            });
+
+        } catch (refundError) {
+            claimedOrder.refundStatus = "failed";
+            await claimedOrder.save();
+
+            return res.status(400).json({
+                message:
+                    refundError?.error?.description ||
+                    refundError.message ||
+                    "Refund processing failed"
+            });
+        }
 
     } catch (error) {
-
         console.error(
             "Refund processing error:",
             error.message
         );
 
-
-        // ----------------------------------------------------
-        // If Razorpay refund fails
-        // ----------------------------------------------------
-
-        try {
-
-            if (req.params.id) {
-
-                await Order.findByIdAndUpdate(
-                    req.params.id,
-                    {
-                        refundStatus: "failed"
-                    }
-                );
-            }
-
-        } catch (updateError) {
-
-            console.error(
-                "Refund status update error:",
-                updateError.message
-            );
+        if (error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid order ID"
+            });
         }
 
-
-        res.status(500).json({
+        return res.status(500).json({
             message: "Refund processing failed"
         });
     }
 };
 
-
-// ============================================================
-// EXPORT CONTROLLERS
-// ============================================================
 
 module.exports = {
     getReturnRequests,
