@@ -36,7 +36,7 @@ const releaseOrderReservation = async (orderId, cancelOrder = true) => {
                     : {})
             }
         },
-        { new: true }
+        { returnDocument: "after" }
     );
 
     if (!released) return null;
@@ -260,7 +260,7 @@ const verifyRazorpayPayment = async (req, res) => {
                     paymentProcessingAt: new Date()
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!order) {
@@ -387,7 +387,7 @@ const verifyRazorpayPayment = async (req, res) => {
                     inventoryReservedUntil: null
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!finalized) {

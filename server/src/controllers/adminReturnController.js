@@ -49,7 +49,7 @@ const approveReturn = async (req, res) => {
                     returnProcessedAt: new Date()
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         ).populate("user", "name email");
 
         if (!order) {
@@ -115,7 +115,7 @@ const rejectReturn = async (req, res) => {
                     returnProcessedAt: new Date()
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         ).populate("user", "name email");
 
         if (!order) {

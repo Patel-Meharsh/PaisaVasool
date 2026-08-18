@@ -54,7 +54,7 @@ const updateProfile = async (req, res) => {
                     phone: phone ? phone.trim() : ""
                 }
             },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         );
 
         if (!updatedUser) {

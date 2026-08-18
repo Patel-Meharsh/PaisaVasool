@@ -30,7 +30,7 @@ const processPriceAlerts = async (productId, newPrice) => {
                     isNotified: true
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!claimed) continue;
@@ -274,7 +274,7 @@ const updateProduct = async (req, res) => {
         const product = await Product.findByIdAndUpdate(
             id,
             { $set: updates },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         ).populate("category", "name description");
 
         if (!product) {
@@ -317,7 +317,7 @@ const deleteProduct = async (req, res) => {
         const product = await Product.findByIdAndUpdate(
             id,
             { $set: { isActive: false } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!product) {

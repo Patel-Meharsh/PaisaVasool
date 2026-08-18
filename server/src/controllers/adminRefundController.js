@@ -49,7 +49,7 @@ const processRefundSafely = async (req, res) => {
             {
                 $set: { refundStatus: "pending" }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!order) {

@@ -181,7 +181,7 @@ const updateCategory = async (req, res) => {
                 isActive
             },
             {
-                new: true,
+                returnDocument: "after",
                 runValidators: true
             }
         );

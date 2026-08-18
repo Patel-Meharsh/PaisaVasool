@@ -31,7 +31,7 @@ const releaseExpiredReservations = async () => {
                     paymentStatus: "failed"
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!claimed) continue;
@@ -117,7 +117,7 @@ const createOrder = async (req, res) => {
                     stock: { $gte: item.quantity }
                 },
                 { $inc: { stock: -item.quantity } },
-                { new: true }
+                { returnDocument: "after" }
             );
 
             if (!reserved) {

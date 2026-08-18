@@ -72,7 +72,7 @@ const initiateRefund = async (order, reason, receiptPrefix) => {
             razorpayRefundId: null
         },
         { $set: { refundStatus: "pending" } },
-        { new: true }
+        { returnDocument: "after" }
     );
 
     if (!claimedOrder) {
@@ -169,7 +169,7 @@ const cancelOrderSafely = async (req, res) => {
                 status: { $in: ["pending", "confirmed"] }
             },
             { $set: { status: "cancelled" } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!cancelledOrder) {
@@ -302,7 +302,7 @@ const updateOrderStatusSafely = async (req, res) => {
                     status: { $in: ["pending", "confirmed"] }
                 },
                 { $set: { status: "cancelled" } },
-                { new: true }
+                { returnDocument: "after" }
             ).populate("user", "name email");
 
             if (!cancelledOrder) {

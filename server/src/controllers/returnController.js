@@ -144,7 +144,7 @@ const requestReturn = async (req, res) => {
                     inventoryRestocked: false
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!claimedOrder) {

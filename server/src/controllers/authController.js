@@ -126,7 +126,7 @@ const registerUser = async (req, res) => {
                         }
                     },
                     {
-                        new: true,
+                        returnDocument: "after",
                         upsert: true,
                         runValidators: true,
                         setDefaultsOnInsert: true
@@ -274,7 +274,7 @@ const verifyEmail = async (req, res) => {
                     {
                         $inc: { otpAttempts: 1 }
                     },
-                    { new: true }
+                    { returnDocument: "after" }
                 );
 
 
@@ -569,7 +569,7 @@ const forgotPassword = async (req, res) => {
                         }
                     },
                     {
-                        new: true,
+                        returnDocument: "after",
                         upsert: true,
                         runValidators: true,
                         setDefaultsOnInsert: true
@@ -721,7 +721,7 @@ const verifyPasswordResetOtp = async (req, res) => {
                     {
                         $inc: { otpAttempts: 1 }
                     },
-                    { new: true }
+                    { returnDocument: "after" }
                 );
 
 
@@ -777,7 +777,7 @@ const verifyPasswordResetOtp = async (req, res) => {
                         verifiedAt: now
                     }
                 },
-                { new: true }
+                { returnDocument: "after" }
             );
 
 
