@@ -2,6 +2,9 @@
 // PRODUCT QUERY VALIDATION
 // ============================================================
 
+const mongoose = require("mongoose");
+
+
 // Product search is implemented with MongoDB regular expressions.
 // Escape user input so regex metacharacters cannot create expensive
 // or unintended patterns.
@@ -12,8 +15,10 @@ const escapeRegex = (value) =>
 const validateProductQuery = (req, res, next) => {
     const {
         search,
+        category,
         minPrice,
         maxPrice,
+        sort,
         page,
         limit
     } = req.query;
@@ -26,6 +31,30 @@ const validateProductQuery = (req, res, next) => {
         }
 
         req.query.search = escapeRegex(search.trim());
+    }
+
+    if (category !== undefined) {
+        if (!mongoose.Types.ObjectId.isValid(category)) {
+            return res.status(400).json({
+                message: "Invalid category ID"
+            });
+        }
+    }
+
+    const allowedSorts = [
+        "price_asc",
+        "price_desc",
+        "name_asc",
+        "name_desc"
+    ];
+
+    if (
+        sort !== undefined &&
+        !allowedSorts.includes(sort)
+    ) {
+        return res.status(400).json({
+            message: "Invalid sort option"
+        });
     }
 
     const numericFields = [
