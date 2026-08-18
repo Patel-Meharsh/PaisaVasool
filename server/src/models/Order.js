@@ -9,7 +9,14 @@ const orderItemSchema = new mongoose.Schema(
         },
         name: { type: String, required: true },
         price: { type: Number, required: true, min: 0 },
-        quantity: { type: Number, required: true, min: 1 }
+        quantity: { type: Number, required: true, min: 1 },
+
+        // Snapshot of the product images at the time the order is created.
+        // This keeps order history independent from future product changes.
+        images: {
+            type: [String],
+            default: []
+        }
     },
     { _id: false }
 );
@@ -23,7 +30,11 @@ const returnItemSchema = new mongoose.Schema(
         },
         name: { type: String, required: true },
         price: { type: Number, required: true, min: 0 },
-        quantity: { type: Number, required: true, min: 1 }
+        quantity: { type: Number, required: true, min: 1 },
+        images: {
+            type: [String],
+            default: []
+        }
     },
     { _id: false }
 );
