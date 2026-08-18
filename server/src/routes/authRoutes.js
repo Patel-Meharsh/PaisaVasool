@@ -2,16 +2,8 @@
 // IMPORT EXPRESS
 // ============================================================
 
-const express =
-    require("express");
-
-
-// ============================================================
-// CREATE ROUTER
-// ============================================================
-
-const router =
-    express.Router();
+const express = require("express");
+const router = express.Router();
 
 
 // ============================================================
@@ -19,26 +11,21 @@ const router =
 // ============================================================
 
 const {
-
     registerUser,
-
     verifyEmail,
-
     loginUser,
-
     forgotPassword,
-
     verifyPasswordResetOtp,
-
-    resetPassword
-
-} =
-    require("../controllers/authController");
+    resetPassword,
+    logoutUser
+} = require("../controllers/authController");
 
 
 // ============================================================
-// VALIDATION
+// IMPORT MIDDLEWARE
 // ============================================================
+
+const protect = require("../middleware/authMiddleware");
 
 const validate =
     require("../validators/validationMiddleware");
@@ -46,8 +33,7 @@ const validate =
 const {
     registerSchema,
     loginSchema
-} =
-    require("../validators/authValidator");
+} = require("../validators/authValidator");
 
 
 // ============================================================
@@ -55,13 +41,9 @@ const {
 // ============================================================
 
 router.post(
-
     "/register",
-
     validate(registerSchema),
-
     registerUser
-
 );
 
 
@@ -70,11 +52,8 @@ router.post(
 // ============================================================
 
 router.post(
-
     "/verify-email",
-
     verifyEmail
-
 );
 
 
@@ -83,13 +62,9 @@ router.post(
 // ============================================================
 
 router.post(
-
     "/login",
-
     validate(loginSchema),
-
     loginUser
-
 );
 
 
@@ -98,11 +73,8 @@ router.post(
 // ============================================================
 
 router.post(
-
     "/forgot-password",
-
     forgotPassword
-
 );
 
 
@@ -111,11 +83,8 @@ router.post(
 // ============================================================
 
 router.post(
-
     "/verify-password-reset-otp",
-
     verifyPasswordResetOtp
-
 );
 
 
@@ -124,11 +93,21 @@ router.post(
 // ============================================================
 
 router.post(
-
     "/reset-password",
-
     resetPassword
+);
 
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+// The frontend also removes the JWT locally, while this endpoint
+// invalidates the token server-side by increasing sessionVersion.
+router.post(
+    "/logout",
+    protect,
+    logoutUser
 );
 
 
@@ -136,5 +115,4 @@ router.post(
 // EXPORT
 // ============================================================
 
-module.exports =
-    router;
+module.exports = router;
