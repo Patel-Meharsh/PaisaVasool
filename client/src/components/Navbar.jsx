@@ -13,6 +13,49 @@ function Navbar() {
 
     const [search, setSearch] = useState("");
 
+     // ============================================================
+    // SHOP
+    // ============================================================
+
+    const handleShop = (event) => {
+
+        event.preventDefault();
+
+        // ------------------------------------------------
+        // Go to Home page
+        // ------------------------------------------------
+
+        navigate("/");
+
+        // ------------------------------------------------
+        // Wait for Home page to render
+        // Then scroll to Bestseller section
+        // ------------------------------------------------
+
+        setTimeout(() => {
+
+            const bestsellerSection =
+                document.getElementById(
+                    "bestsellers"
+                );
+
+            if (bestsellerSection) {
+
+                bestsellerSection.scrollIntoView({
+
+                    behavior:
+                        "smooth",
+
+                    block:
+                        "start"
+
+                });
+
+            }
+
+        }, 150);
+
+    };
 
     // ============================================================
     // LOGOUT
@@ -94,7 +137,10 @@ function Navbar() {
                         Home
                     </Link>
 
-                    <Link to="/#bestsellers">
+                    <Link
+                        to="/"
+                        onClick={handleShop}
+                    >
                         Shop
                     </Link>
 

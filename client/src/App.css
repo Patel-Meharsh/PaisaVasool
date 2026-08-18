@@ -5065,6 +5065,14 @@ button {
     font-weight: 700;
 }
 
+.cart-page h1 {
+    margin: 0 0 5px;
+    color: #111;
+    font-size: 42px;
+    line-height: 1.2;
+    font-weight: 700;
+}
+
 .cart-header p {
     margin: 0;
     color: #777;
@@ -5441,7 +5449,7 @@ button {
 .cart-page > p:not(.error-message) {
     margin: 60px auto 22px;
     color: #777;
-    font-size: 14px;
+    font-size: 18px;
     text-align: center;
 }
 
@@ -5449,13 +5457,13 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 180px;
+    width: 220px;
     height: 43px;
     margin: 0 auto;
     border-radius: 7px;
     background: #111;
     color: #fff;
-    font-size: 13px;
+    font-size: 20px;
     font-weight: 600;
     text-decoration: none;
     transition:
@@ -5472,10 +5480,10 @@ button {
    LOADING
 ============================================================ */
 
-.cart-page > h2 {
+.cart-page > h2{
     margin: 80px 0;
     color: #111;
-    font-size: 24px;
+    font-size: 42px;
     text-align: center;
 }
 
@@ -5492,7 +5500,7 @@ button {
     border-radius: 6px;
     background: #111;
     color: #fff;
-    font-size: 13px;
+    font-size: 34px;
     font-weight: 600;
     cursor: pointer;
 }

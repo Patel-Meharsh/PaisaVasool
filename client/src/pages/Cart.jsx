@@ -335,11 +335,10 @@ function Cart() {
 
         return (
             <div className="cart-page">
-
                 <h1>Your Cart</h1>
 
                 <p>
-                    Your cart is empty.
+                    Your cart is empty !!
                 </p>
 
                 <Link to="/products">
