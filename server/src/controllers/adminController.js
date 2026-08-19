@@ -32,7 +32,6 @@ const adminDashboard = async (req, res) => {
     }
 };
 
-
 // Export controller
 module.exports = {
     adminDashboard
