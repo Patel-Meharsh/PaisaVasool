@@ -5,6 +5,10 @@ const PriceAlert = require("../models/PriceAlert");
 
 const { sendPriceDropAlertEmail } = require("../utils/sendEmail");
 
+// ============================================================
+// PRICE ALERT PROCESSING
+// ============================================================
+
 const processPriceAlerts = async (productId, newPrice) => {
     const product = await Product.findById(productId).populate(
         "category",
@@ -12,8 +16,6 @@ const processPriceAlerts = async (productId, newPrice) => {
     );
 
     if (!product) return;
-
-    product.price = newPrice;
 
     const alerts = await PriceAlert.find({
         product: productId,
@@ -61,6 +63,10 @@ const processPriceAlerts = async (productId, newPrice) => {
     }
 };
 
+// ============================================================
+// CREATE PRODUCT
+// ============================================================
+
 const createProduct = async (req, res) => {
     try {
         const {
@@ -70,13 +76,14 @@ const createProduct = async (req, res) => {
             stock,
             images,
             brand,
-            category
+            category,
+            subcategory
         } = req.body;
 
         const existingCategory = await Category.findOne({
             _id: category,
             isActive: true
-        });
+        }).lean();
 
         if (!existingCategory) {
             return res.status(400).json({
@@ -91,7 +98,8 @@ const createProduct = async (req, res) => {
             stock,
             images,
             brand: brand.trim(),
-            category
+            category,
+            subcategory: subcategory?.trim() || ""
         });
 
         return res.status(201).json({
@@ -104,74 +112,146 @@ const createProduct = async (req, res) => {
     }
 };
 
+// ============================================================
+// GET PRODUCT CATALOGUE
+// ============================================================
+
 const getProducts = async (req, res) => {
     try {
         const {
             search,
             category,
+            subcategory,
+            brand,
             minPrice,
             maxPrice,
             sort,
             page = 1,
-            limit = 10
+            limit = 12
         } = req.query;
 
         const filter = { isActive: true };
 
-        if (search) {
+        if (search?.trim()) {
+            const safeSearch = search.trim().slice(0, 100);
+
             filter.$or = [
-                { name: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-                { brand: { $regex: search, $options: "i" } }
+                { name: { $regex: safeSearch, $options: "i" } },
+                { description: { $regex: safeSearch, $options: "i" } },
+                { brand: { $regex: safeSearch, $options: "i" } },
+                { subcategory: { $regex: safeSearch, $options: "i" } }
             ];
         }
 
-        if (category) filter.category = category;
+        if (category) {
+            if (!mongoose.Types.ObjectId.isValid(category)) {
+                return res.status(400).json({
+                    message: "Invalid category ID"
+                });
+            }
 
-        if (minPrice !== undefined) {
-            filter.price = {
-                ...filter.price,
-                $gte: Number(minPrice)
-            };
+            filter.category = category;
         }
 
-        if (maxPrice !== undefined) {
-            filter.price = {
-                ...filter.price,
-                $lte: Number(maxPrice)
-            };
+        if (subcategory?.trim()) {
+            filter.subcategory = subcategory.trim();
         }
 
-        const pageNumber = Math.max(Number(page), 1);
+        if (brand?.trim()) {
+            filter.brand = brand.trim();
+        }
+
+        const parsedMinPrice =
+            minPrice !== undefined ? Number(minPrice) : null;
+
+        const parsedMaxPrice =
+            maxPrice !== undefined ? Number(maxPrice) : null;
+
+        if (
+            minPrice !== undefined &&
+            (!Number.isFinite(parsedMinPrice) || parsedMinPrice < 0)
+        ) {
+            return res.status(400).json({
+                message: "Invalid minimum price"
+            });
+        }
+
+        if (
+            maxPrice !== undefined &&
+            (!Number.isFinite(parsedMaxPrice) || parsedMaxPrice < 0)
+        ) {
+            return res.status(400).json({
+                message: "Invalid maximum price"
+            });
+        }
+
+        if (
+            parsedMinPrice !== null &&
+            parsedMaxPrice !== null &&
+            parsedMinPrice > parsedMaxPrice
+        ) {
+            return res.status(400).json({
+                message: "Minimum price cannot be greater than maximum price"
+            });
+        }
+
+        if (parsedMinPrice !== null || parsedMaxPrice !== null) {
+            filter.price = {};
+
+            if (parsedMinPrice !== null) {
+                filter.price.$gte = parsedMinPrice;
+            }
+
+            if (parsedMaxPrice !== null) {
+                filter.price.$lte = parsedMaxPrice;
+            }
+        }
+
+        const pageNumber = Math.max(
+            Number.parseInt(page, 10) || 1,
+            1
+        );
+
         const limitNumber = Math.min(
-            Math.max(Number(limit), 1),
+            Math.max(Number.parseInt(limit, 10) || 12, 1),
             50
         );
 
         const sortOption = {
-            price_asc: { price: 1 },
-            price_desc: { price: -1 },
-            name_asc: { name: 1 },
-            name_desc: { name: -1 }
-        }[sort] || { createdAt: -1 };
+            price_asc: { price: 1, _id: 1 },
+            price_desc: { price: -1, _id: 1 },
+            name_asc: { name: 1, _id: 1 },
+            name_desc: { name: -1, _id: 1 }
+        }[sort] || { createdAt: -1, _id: -1 };
 
-        const totalProducts = await Product.countDocuments(filter);
-
-        const products = await Product.find(filter, {
+        const projection = {
             name: 1,
             description: 1,
             price: 1,
             stock: 1,
             images: 1,
             brand: 1,
-            category: 1
-        })
-            .populate("category", "name")
-            .sort(sortOption)
-            .skip((pageNumber - 1) * limitNumber)
-            .limit(limitNumber);
+            category: 1,
+            subcategory: 1
+        };
 
-        const totalPages = Math.ceil(totalProducts / limitNumber);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Count and fetch in parallel. lean() avoids the overhead of
+        // creating full Mongoose documents for catalogue cards.
+        const [totalProducts, products] = await Promise.all([
+            Product.countDocuments(filter),
+            Product.find(filter, projection)
+                .populate("category", "name")
+                .sort(sortOption)
+                .skip(skip)
+                .limit(limitNumber)
+                .lean()
+        ]);
+
+        const totalPages = Math.ceil(
+            totalProducts / limitNumber
+        );
 
         return res.status(200).json({
             message: "Products fetched successfully",
@@ -191,21 +271,74 @@ const getProducts = async (req, res) => {
     }
 };
 
+// ============================================================
+// GET PRODUCT FILTER FACETS
+// ============================================================
+
+const getProductFacets = async (req, res) => {
+    try {
+        const { category } = req.query;
+        const filter = { isActive: true };
+
+        if (category) {
+            if (!mongoose.Types.ObjectId.isValid(category)) {
+                return res.status(400).json({
+                    message: "Invalid category ID"
+                });
+            }
+
+            filter.category = category;
+        }
+
+        const [subcategories, brands] = await Promise.all([
+            Product.distinct("subcategory", filter),
+            Product.distinct("brand", filter)
+        ]);
+
+        return res.status(200).json({
+            message: "Product filters fetched successfully",
+            subcategories: subcategories
+                .filter(Boolean)
+                .map(value => value.trim())
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b)),
+            brands: brands
+                .filter(Boolean)
+                .map(value => value.trim())
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b))
+        });
+    } catch (error) {
+        console.error("Get product facets error:", error.message);
+        return res.status(500).json({ message: "Server error" });
+    }
+};
+
+// ============================================================
+// GET PRODUCT BY ID
+// ============================================================
+
 const getProductById = async (req, res) => {
     try {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: "Invalid product ID" });
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
         }
 
         const product = await Product.findOne({
             _id: id,
             isActive: true
-        }).populate("category", "name description");
+        })
+            .populate("category", "name description")
+            .lean();
 
         if (!product) {
-            return res.status(404).json({ message: "Product not found" });
+            return res.status(404).json({
+                message: "Product not found"
+            });
         }
 
         return res.status(200).json({
@@ -218,18 +351,26 @@ const getProductById = async (req, res) => {
     }
 };
 
+// ============================================================
+// UPDATE PRODUCT
+// ============================================================
+
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: "Invalid product ID" });
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
         }
 
         const existingProduct = await Product.findById(id);
 
         if (!existingProduct) {
-            return res.status(404).json({ message: "Product not found" });
+            return res.status(404).json({
+                message: "Product not found"
+            });
         }
 
         const updates = {};
@@ -241,6 +382,7 @@ const updateProduct = async (req, res) => {
             "images",
             "brand",
             "category",
+            "subcategory",
             "isActive"
         ];
 
@@ -250,17 +392,27 @@ const updateProduct = async (req, res) => {
             }
         }
 
-        if (updates.name !== undefined) updates.name = updates.name.trim();
+        if (updates.name !== undefined) {
+            updates.name = updates.name.trim();
+        }
+
         if (updates.description !== undefined) {
             updates.description = updates.description.trim();
         }
-        if (updates.brand !== undefined) updates.brand = updates.brand.trim();
+
+        if (updates.brand !== undefined) {
+            updates.brand = updates.brand.trim();
+        }
+
+        if (updates.subcategory !== undefined) {
+            updates.subcategory = updates.subcategory.trim();
+        }
 
         if (updates.category !== undefined) {
             const existingCategory = await Category.findOne({
                 _id: updates.category,
                 isActive: true
-            });
+            }).lean();
 
             if (!existingCategory) {
                 return res.status(400).json({
@@ -275,10 +427,14 @@ const updateProduct = async (req, res) => {
             id,
             { $set: updates },
             { returnDocument: "after", runValidators: true }
-        ).populate("category", "name description");
+        )
+            .populate("category", "name description")
+            .lean();
 
         if (!product) {
-            return res.status(404).json({ message: "Product not found" });
+            return res.status(404).json({
+                message: "Product not found"
+            });
         }
 
         if (
@@ -286,13 +442,15 @@ const updateProduct = async (req, res) => {
             Number(updates.price) < Number(oldPrice)
         ) {
             setImmediate(() => {
-                processPriceAlerts(product._id, Number(updates.price))
-                    .catch(error => {
-                        console.error(
-                            "Background price alert processing error:",
-                            error.message
-                        );
-                    });
+                processPriceAlerts(
+                    product._id,
+                    Number(updates.price)
+                ).catch(error => {
+                    console.error(
+                        "Background price alert processing error:",
+                        error.message
+                    );
+                });
             });
         }
 
@@ -306,12 +464,18 @@ const updateProduct = async (req, res) => {
     }
 };
 
+// ============================================================
+// DELETE PRODUCT
+// ============================================================
+
 const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: "Invalid product ID" });
+            return res.status(400).json({
+                message: "Invalid product ID"
+            });
         }
 
         const product = await Product.findByIdAndUpdate(
@@ -321,7 +485,9 @@ const deleteProduct = async (req, res) => {
         );
 
         if (!product) {
-            return res.status(404).json({ message: "Product not found" });
+            return res.status(404).json({
+                message: "Product not found"
+            });
         }
 
         return res.status(200).json({
@@ -336,6 +502,7 @@ const deleteProduct = async (req, res) => {
 module.exports = {
     createProduct,
     getProducts,
+    getProductFacets,
     getProductById,
     updateProduct,
     deleteProduct
