@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { getOptimizedImageUrl } from "../utils/imageUrl";
 
 function ProductCard({ product }) {
     const navigate = useNavigate();
@@ -7,10 +8,6 @@ function ProductCard({ product }) {
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [adding, setAdding] = useState(false);
-
-    // ============================================================
-    // ADD TO CART
-    // ============================================================
 
     const handleAddToCart = async () => {
         const token = localStorage.getItem("token");
@@ -59,16 +56,17 @@ function ProductCard({ product }) {
         }
     };
 
-    // ============================================================
-    // PRODUCT CARD
-    // ============================================================
+    const imageUrl = getOptimizedImageUrl(
+        product.images?.[0],
+        640
+    );
 
     return (
         <div className="product-card">
             <div className="product-image">
-                {product.images?.length > 0 ? (
+                {imageUrl ? (
                     <img
-                        src={product.images[0]}
+                        src={imageUrl}
                         alt={product.name}
                         loading="lazy"
                         decoding="async"
@@ -82,9 +80,7 @@ function ProductCard({ product }) {
             </div>
 
             <div className="product-info">
-                <h2>
-                    {product.name}
-                </h2>
+                <h2>{product.name}</h2>
 
                 <p className="product-detail">
                     <span>Brand:</span>{" "}
