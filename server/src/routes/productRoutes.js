@@ -12,6 +12,7 @@ const {
 const {
     createProduct,
     getProducts,
+    getProductFacets,
     getProductById,
     updateProduct,
     deleteProduct
@@ -21,7 +22,11 @@ const {
     getRecommendations
 } = require("../controllers/recommendationController");
 
+// Public catalogue endpoints.
 router.get("/", getProducts);
+
+// Must be registered before /:id so "facets" is not treated as a product ID.
+router.get("/facets", getProductFacets);
 
 router.get(
     "/recommendations",

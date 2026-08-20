@@ -1,87 +1,88 @@
 // Import mongoose
 const mongoose = require("mongoose");
+
 // ============================================================
 // PRODUCT SCHEMA
 // ============================================================
+
 const productSchema = new mongoose.Schema(
     {
-        // ----------------------------------------------------
-        // Product name
-        // ----------------------------------------------------
         name: {
             type: String,
             required: true,
             trim: true
         },
-        // ----------------------------------------------------
-        // Product description
-        // ----------------------------------------------------
+
         description: {
             type: String,
             required: true,
             trim: true
         },
-        // ----------------------------------------------------
-        // Product price
-        // ----------------------------------------------------
+
         price: {
             type: Number,
             required: true,
             min: 0
         },
-        // ----------------------------------------------------
-        // Available stock
-        // ----------------------------------------------------
+
         stock: {
             type: Number,
             required: true,
             min: 0,
             default: 0
         },
-        // ----------------------------------------------------
-        // Product images
-        // ----------------------------------------------------
-        // For now we will store image URLs.
-        // Later we can integrate Cloudinary or another
-        // image storage service.
-        images: {type: [String], default: []},
-        // ----------------------------------------------------
-        // Brand
-        // ----------------------------------------------------
+
+        images: {
+            type: [String],
+            default: []
+        },
+
         brand: {
             type: String,
             trim: true,
             default: ""
         },
-        // ----------------------------------------------------
-        // Category
-        // ----------------------------------------------------
-        // Each product belongs to one category.
-        //
-        // Example:
-        // Product → Electronics
-        // The category field stores the Category document's
-        // ObjectId.
+
         category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",
             required: true
         },
-        // ----------------------------------------------------
-        // Product active status
-        // ----------------------------------------------------
+
+        // Category-specific product type.
+        // Examples: Shirts, Pants, Sneakers, Speakers, etc.
+        subcategory: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
         isActive: {
             type: Boolean,
             default: true
         }
     },
     {
-        // Automatically creates:
-        // createdAt
-        // updatedAt
         timestamps: true
     }
 );
+
+// ============================================================
+// PERFORMANCE INDEXES
+// ============================================================
+
+productSchema.index({ isActive: 1, category: 1, subcategory: 1 });
+productSchema.index({ isActive: 1, category: 1, brand: 1 });
+productSchema.index({ isActive: 1, price: 1 });
+productSchema.index({ isActive: 1, createdAt: -1 });
+
+// Text index for scalable catalogue search.
+productSchema.index({
+    name: "text",
+    description: "text",
+    brand: "text",
+    subcategory: "text"
+});
 
 // ============================================================
 // CREATE MODEL
@@ -89,5 +90,4 @@ const productSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", productSchema);
 
-// Export model
 module.exports = Product;

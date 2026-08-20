@@ -1,9 +1,9 @@
 // ============================================================
-// PAISAVASOOL EMAIL UTILITY
+// PAISAVASOOL EMAIL API UTILITY
 // ============================================================
-// Transactional emails are sent through Resend's HTTPS API.
-// This avoids SMTP connections, which are blocked on Render's
-// Free web services.
+// Render Free blocks outbound SMTP ports. This utility sends
+// transactional email through Resend's HTTPS API instead.
+// No SMTP connection is created by the application.
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
@@ -38,7 +38,7 @@ const sendEmail = async ({
         {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
@@ -78,6 +78,8 @@ const sendEmail = async ({
 // ============================================================
 
 const sendOTPEmail = async (email, otp) => {
+    const safeOtp = escapeHtml(otp);
+
     return sendEmail({
         to: email,
         subject: "PaisaVasool Email Verification OTP",
@@ -86,7 +88,7 @@ const sendOTPEmail = async (email, otp) => {
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
                 <h2>Welcome to PaisaVasool!</h2>
                 <p>Your email verification OTP is:</p>
-                <h1>${escapeHtml(otp)}</h1>
+                <h1>${safeOtp}</h1>
                 <p>This OTP will expire in <strong>5 minutes</strong>.</p>
                 <p>If you did not create a PaisaVasool account, you can ignore this email.</p>
                 <p>Regards,<br><strong>PaisaVasool Team</strong></p>
@@ -100,6 +102,8 @@ const sendOTPEmail = async (email, otp) => {
 // ============================================================
 
 const sendPasswordResetOTPEmail = async (email, otp) => {
+    const safeOtp = escapeHtml(otp);
+
     return sendEmail({
         to: email,
         subject: "PaisaVasool Password Reset OTP",
@@ -109,7 +113,7 @@ const sendPasswordResetOTPEmail = async (email, otp) => {
                 <h2>Password Reset Request</h2>
                 <p>We received a request to reset your PaisaVasool account password.</p>
                 <p>Your password reset OTP is:</p>
-                <h1>${escapeHtml(otp)}</h1>
+                <h1>${safeOtp}</h1>
                 <p>This OTP will expire in <strong>5 minutes</strong>.</p>
                 <p>If you did not request a password reset, you can safely ignore this email.</p>
                 <p>Regards,<br><strong>PaisaVasool Team</strong></p>
@@ -123,13 +127,15 @@ const sendPasswordResetOTPEmail = async (email, otp) => {
 // ============================================================
 
 const sendLoginSuccessEmail = async (email, name) => {
+    const safeName = escapeHtml(name);
+
     return sendEmail({
         to: email,
         subject: "Welcome Back to PaisaVasool!",
         tag: "login_success",
         html: `
             <div style="font-family:Arial,sans-serif">
-                <h2>Welcome back, ${escapeHtml(name)}!</h2>
+                <h2>Welcome back, ${safeName}!</h2>
                 <p>You have successfully logged in to your PaisaVasool account.</p>
                 <p>If this was not you, please secure your account immediately.</p>
                 <p>Regards,<br>PaisaVasool Team</p>
@@ -143,13 +149,15 @@ const sendLoginSuccessEmail = async (email, name) => {
 // ============================================================
 
 const sendWelcomeEmail = async (email, name) => {
+    const safeName = escapeHtml(name);
+
     return sendEmail({
         to: email,
         subject: "Welcome to PaisaVasool!",
         tag: "welcome",
         html: `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-                <h2>Welcome to PaisaVasool, ${escapeHtml(name)}!</h2>
+                <h2>Welcome to PaisaVasool, ${safeName}!</h2>
                 <p>Your email has been successfully verified.</p>
                 <p>Your PaisaVasool account is now ready to use.</p>
                 <p>You can now browse products, add items to your cart and place orders.</p>
@@ -165,6 +173,12 @@ const sendWelcomeEmail = async (email, name) => {
 // ============================================================
 
 const sendOrderPlacedEmail = async (email, name, order) => {
+    const safeName = escapeHtml(name);
+    const safeOrderId = escapeHtml(order?._id);
+    const safePaymentMethod = escapeHtml(
+        order?.paymentMethod || ""
+    ).toUpperCase();
+
     const itemsHTML = (order?.items || [])
         .map(item => `
             <tr>
@@ -177,14 +191,14 @@ const sendOrderPlacedEmail = async (email, name, order) => {
 
     return sendEmail({
         to: email,
-        subject: `PaisaVasool Order #${escapeHtml(order?._id)}`,
+        subject: `PaisaVasool Order #${safeOrderId}`,
         tag: "order_placed",
         html: `
             <div style="font-family:Arial,sans-serif;max-width:700px;margin:auto">
                 <h2>Order Placed Successfully!</h2>
-                <p>Hi ${escapeHtml(name)},</p>
+                <p>Hi ${safeName},</p>
                 <p>Your PaisaVasool order has been placed successfully.</p>
-                <p><strong>Order ID:</strong> ${escapeHtml(order?._id)}</p>
+                <p><strong>Order ID:</strong> ${safeOrderId}</p>
                 <table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">
                     <thead>
                         <tr>
@@ -196,7 +210,7 @@ const sendOrderPlacedEmail = async (email, name, order) => {
                     <tbody>${itemsHTML}</tbody>
                 </table>
                 <h3>Total: ₹${escapeHtml(order?.totalAmount)}</h3>
-                <p>Payment Method: <strong>${escapeHtml(order?.paymentMethod || "").toUpperCase()}</strong></p>
+                <p>Payment Method: <strong>${safePaymentMethod}</strong></p>
                 <p>We will keep you updated about your order.</p>
                 <p>Regards,<br><strong>PaisaVasool Team</strong></p>
             </div>

@@ -1,12 +1,10 @@
 const Joi = require("joi");
 
-
 // ============================================================
 // CREATE PRODUCT
 // ============================================================
 
 const createProductSchema = Joi.object({
-
     name: Joi.string()
         .trim()
         .min(2)
@@ -43,18 +41,21 @@ const createProductSchema = Joi.object({
         .length(24)
         .required(),
 
+    subcategory: Joi.string()
+        .trim()
+        .max(100)
+        .allow("")
+        .optional(),
+
     isActive: Joi.boolean()
         .optional()
-
 });
-
 
 // ============================================================
 // UPDATE PRODUCT
 // ============================================================
 
 const updateProductSchema = Joi.object({
-
     name: Joi.string()
         .trim()
         .min(2)
@@ -84,10 +85,13 @@ const updateProductSchema = Joi.object({
         .hex()
         .length(24),
 
+    subcategory: Joi.string()
+        .trim()
+        .max(100)
+        .allow(""),
+
     isActive: Joi.boolean()
-
 }).min(1);
-
 
 module.exports = {
     createProductSchema,

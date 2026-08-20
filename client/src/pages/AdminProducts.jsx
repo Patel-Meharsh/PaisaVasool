@@ -2,25 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 function AdminProducts() {
-
     const navigate = useNavigate();
 
-    // ============================================================
-    // STATE
-    // ============================================================
-
     const [products, setProducts] = useState([]);
-
     const [categories, setCategories] = useState([]);
-
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState("");
-
     const [success, setSuccess] = useState("");
-
-    const [editingProductId, setEditingProductId] =
-        useState(null);
+    const [editingProductId, setEditingProductId] = useState(null);
 
     const [form, setForm] = useState({
         name: "",
@@ -29,134 +18,82 @@ function AdminProducts() {
         stock: "",
         brand: "",
         category: "",
+        subcategory: "",
         images: ""
     });
-
 
     // ============================================================
     // FETCH PRODUCTS
     // ============================================================
 
     const fetchProducts = async () => {
-
         try {
-
-            const token =
-                localStorage.getItem("token");
+            const token = localStorage.getItem("token");
 
             if (!token) {
-
                 navigate("/login");
-
                 return;
-
             }
-
 
             const response = await fetch(
-                "http://localhost:5000/api/products"
+                "http://localhost:5000/api/products?limit=50"
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
-                    data.message ||
-                    "Failed to fetch products"
+                    data.message || "Failed to fetch products"
                 );
-
             }
 
-
-            setProducts(
-                data.products || []
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Fetch products error:",
-                error
-            );
-
-            setError(
-                error.message
-            );
-
+            setProducts(data.products || []);
+        } catch (requestError) {
+            console.error("Fetch products error:", requestError);
+            setError(requestError.message);
         }
-
     };
-
 
     // ============================================================
     // FETCH CATEGORIES
     // ============================================================
 
     const fetchCategories = async () => {
-
         try {
-
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             const response = await fetch(
                 "http://localhost:5000/api/categories",
                 {
-                    method: "GET",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${token}`
+                        Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
-                    data.message ||
-                    "Failed to fetch categories"
+                    data.message || "Failed to fetch categories"
                 );
-
             }
 
-
-            setCategories(
-                data.categories || []
-            );
-
-
-        } catch (error) {
-
+            setCategories(data.categories || []);
+        } catch (requestError) {
             console.error(
                 "Fetch categories error:",
-                error
+                requestError
             );
-
         }
-
     };
-
 
     // ============================================================
     // LOAD DATA
     // ============================================================
 
     useEffect(() => {
-
         const loadData = async () => {
-
             setLoading(true);
 
             await Promise.all([
@@ -165,44 +102,29 @@ function AdminProducts() {
             ]);
 
             setLoading(false);
-
         };
 
-
         loadData();
-
     }, []);
-
 
     // ============================================================
     // HANDLE INPUT
     // ============================================================
 
     const handleChange = (event) => {
-
-        const {
-            name,
-            value
-        } = event.target;
-
+        const { name, value } = event.target;
 
         setForm((previousForm) => ({
-
             ...previousForm,
-
             [name]: value
-
         }));
-
     };
-
 
     // ============================================================
     // RESET FORM
     // ============================================================
 
     const resetForm = () => {
-
         setForm({
             name: "",
             description: "",
@@ -210,368 +132,179 @@ function AdminProducts() {
             stock: "",
             brand: "",
             category: "",
+            subcategory: "",
             images: ""
         });
 
         setEditingProductId(null);
-
     };
-
 
     // ============================================================
     // CREATE / UPDATE PRODUCT
     // ============================================================
 
     const handleSubmit = async (event) => {
-
         event.preventDefault();
-
         setError("");
-
         setSuccess("");
 
-
         try {
-
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             if (!token) {
-
                 navigate("/login");
-
                 return;
-
             }
-
 
             const productData = {
-
-                name:
-                    form.name,
-
-                description:
-                    form.description,
-
-                price:
-                    Number(form.price),
-
-                stock:
-                    Number(form.stock),
-
-                brand:
-                    form.brand,
-
-                category:
-                    form.category,
-
-                images:
-                    form.images
-                        ? [form.images]
-                        : []
-
+                name: form.name,
+                description: form.description,
+                price: Number(form.price),
+                stock: Number(form.stock),
+                brand: form.brand,
+                category: form.category,
+                subcategory: form.subcategory,
+                images: form.images ? [form.images] : []
             };
 
+            const url = editingProductId
+                ? `http://localhost:5000/api/products/${editingProductId}`
+                : "http://localhost:5000/api/products";
 
-            // ----------------------------------------------------
-            // CREATE
-            // ----------------------------------------------------
+            const response = await fetch(url, {
+                method: editingProductId ? "PUT" : "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(productData)
+            });
 
-            if (!editingProductId) {
+            const data = await response.json();
 
-                const response = await fetch(
-                    "http://localhost:5000/api/products",
-                    {
-                        method: "POST",
-
-                        headers: {
-
-                            "Content-Type":
-                                "application/json",
-
-                            Authorization:
-                                `Bearer ${token}`
-
-                        },
-
-                        body:
-                            JSON.stringify(
-                                productData
-                            )
-
-                    }
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    `Failed to ${editingProductId ? "update" : "create"} product`
                 );
-
-
-                const data =
-                    await response.json();
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.message ||
-                        "Failed to create product"
-                    );
-
-                }
-
-
-                setSuccess(
-                    "Product created successfully."
-                );
-
             }
 
-
-            // ----------------------------------------------------
-            // UPDATE
-            // ----------------------------------------------------
-
-            else {
-
-                const response = await fetch(
-                    `http://localhost:5000/api/products/${editingProductId}`,
-                    {
-                        method: "PUT",
-
-                        headers: {
-
-                            "Content-Type":
-                                "application/json",
-
-                            Authorization:
-                                `Bearer ${token}`
-
-                        },
-
-                        body:
-                            JSON.stringify(
-                                productData
-                            )
-
-                    }
-                );
-
-
-                const data =
-                    await response.json();
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.message ||
-                        "Failed to update product"
-                    );
-
-                }
-
-
-                setSuccess(
-                    "Product updated successfully."
-                );
-
-            }
-
+            setSuccess(
+                editingProductId
+                    ? "Product updated successfully."
+                    : "Product created successfully."
+            );
 
             resetForm();
-
             await fetchProducts();
-
-
-        } catch (error) {
-
+        } catch (requestError) {
             console.error(
                 "Save product error:",
-                error
+                requestError
             );
 
-            setError(
-                error.message
-            );
-
+            setError(requestError.message);
         }
-
     };
-
 
     // ============================================================
     // EDIT PRODUCT
     // ============================================================
 
     const handleEdit = (product) => {
-
-        setEditingProductId(
-            product._id
-        );
-
+        setEditingProductId(product._id);
 
         setForm({
-
-            name:
-                product.name || "",
-
-            description:
-                product.description || "",
-
-            price:
-                product.price || "",
-
-            stock:
-                product.stock || "",
-
-            brand:
-                product.brand || "",
-
+            name: product.name || "",
+            description: product.description || "",
+            price: product.price || "",
+            stock: product.stock || "",
+            brand: product.brand || "",
             category:
                 product.category?._id ||
                 product.category ||
                 "",
-
-            images:
-                product.images?.[0] || ""
-
+            subcategory: product.subcategory || "",
+            images: product.images?.[0] || ""
         });
 
-
         setError("");
-
         setSuccess("");
-
 
         window.scrollTo({
             top: 0,
             behavior: "smooth"
         });
-
     };
-
 
     // ============================================================
     // DELETE PRODUCT
     // ============================================================
 
     const handleDelete = async (productId) => {
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this product?"
+        );
 
-        const confirmed =
-            window.confirm(
-                "Are you sure you want to delete this product?"
-            );
-
-
-        if (!confirmed) {
-
-            return;
-
-        }
-
+        if (!confirmed) return;
 
         try {
-
             setError("");
-
             setSuccess("");
 
-
-            const token =
-                localStorage.getItem("token");
-
+            const token = localStorage.getItem("token");
 
             const response = await fetch(
                 `http://localhost:5000/api/products/${productId}`,
                 {
                     method: "DELETE",
-
                     headers: {
-
-                        Authorization:
-                            `Bearer ${token}`
-
+                        Authorization: `Bearer ${token}`
                     }
-
                 }
             );
 
-
-            const data =
-                await response.json();
-
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
-                    data.message ||
-                    "Failed to delete product"
+                    data.message || "Failed to delete product"
                 );
-
             }
 
-
-            setSuccess(
-                "Product deleted successfully."
-            );
-
-
+            setSuccess("Product deleted successfully.");
             await fetchProducts();
-
-
-        } catch (error) {
-
+        } catch (requestError) {
             console.error(
                 "Delete product error:",
-                error
+                requestError
             );
 
-            setError(
-                error.message
-            );
-
+            setError(requestError.message);
         }
-
     };
-
 
     // ============================================================
     // LOADING
     // ============================================================
 
     if (loading) {
-
         return (
-
             <div className="admin-products-page">
-
                 <div className="admin-products-loading">
-
-                    <h2>
-                        Loading products...
-                    </h2>
-
+                    <h2>Loading products...</h2>
                 </div>
-
             </div>
-
         );
-
     }
-
 
     // ============================================================
     // UI
     // ============================================================
 
     return (
-
         <div className="admin-products-page">
-
-            {/* ==================================================
-                HEADER
-            ================================================== */}
-
             <div className="admin-products-header">
-
                 <Link
                     to="/admin"
                     className="admin-back-link"
@@ -579,55 +312,28 @@ function AdminProducts() {
                     ← Back to Dashboard
                 </Link>
 
-
-                <h1>
-                    Manage Products
-                </h1>
-
+                <h1>Manage Products</h1>
 
                 <p>
                     Add, update and remove PaisaVasool products.
                 </p>
-
             </div>
 
-
-            {/* ==================================================
-                MESSAGES
-            ================================================== */}
-
             {error && (
-
                 <div className="admin-products-error">
-
                     {error}
-
                 </div>
-
             )}
-
 
             {success && (
-
                 <div className="admin-products-success">
-
                     {success}
-
                 </div>
-
             )}
 
-
-            {/* ==================================================
-                PRODUCT FORM
-            ================================================== */}
-
             <div className="admin-product-form-card">
-
                 <div className="admin-form-header">
-
                     <div>
-
                         <h2>
                             {editingProductId
                                 ? "Edit Product"
@@ -639,25 +345,15 @@ function AdminProducts() {
                                 ? "Update the product information below."
                                 : "Enter the details for the new product."}
                         </p>
-
                     </div>
-
                 </div>
-
 
                 <form
                     onSubmit={handleSubmit}
                     className="admin-product-form"
                 >
-
-                    {/* NAME */}
-
                     <div className="product-form-group">
-
-                        <label>
-                            Product Name
-                        </label>
-
+                        <label>Product Name</label>
                         <input
                             type="text"
                             name="name"
@@ -666,18 +362,10 @@ function AdminProducts() {
                             placeholder="Enter product name"
                             required
                         />
-
                     </div>
 
-
-                    {/* BRAND */}
-
                     <div className="product-form-group">
-
-                        <label>
-                            Brand
-                        </label>
-
+                        <label>Brand</label>
                         <input
                             type="text"
                             name="brand"
@@ -685,18 +373,10 @@ function AdminProducts() {
                             onChange={handleChange}
                             placeholder="Enter brand name"
                         />
-
                     </div>
 
-
-                    {/* PRICE */}
-
                     <div className="product-form-group">
-
-                        <label>
-                            Price
-                        </label>
-
+                        <label>Price</label>
                         <input
                             type="number"
                             name="price"
@@ -706,18 +386,10 @@ function AdminProducts() {
                             placeholder="Enter price"
                             required
                         />
-
                     </div>
 
-
-                    {/* STOCK */}
-
                     <div className="product-form-group">
-
-                        <label>
-                            Stock
-                        </label>
-
+                        <label>Stock</label>
                         <input
                             type="number"
                             name="stock"
@@ -727,55 +399,44 @@ function AdminProducts() {
                             placeholder="Enter stock quantity"
                             required
                         />
-
                     </div>
 
-
-                    {/* CATEGORY */}
-
                     <div className="product-form-group">
-
-                        <label>
-                            Category
-                        </label>
-
+                        <label>Category</label>
                         <select
                             name="category"
                             value={form.category}
                             onChange={handleChange}
                             required
                         >
-
                             <option value="">
                                 Select Category
                             </option>
 
-                            {categories.map(
-                                (category) => (
-
-                                    <option
-                                        key={category._id}
-                                        value={category._id}
-                                    >
-                                        {category.name}
-                                    </option>
-
-                                )
-                            )}
-
+                            {categories.map((category) => (
+                                <option
+                                    key={category._id}
+                                    value={category._id}
+                                >
+                                    {category.name}
+                                </option>
+                            ))}
                         </select>
-
                     </div>
 
-
-                    {/* IMAGE URL */}
+                    <div className="product-form-group">
+                        <label>Product Type / Subcategory</label>
+                        <input
+                            type="text"
+                            name="subcategory"
+                            value={form.subcategory}
+                            onChange={handleChange}
+                            placeholder="e.g. Shirts, Pants, Sneakers"
+                        />
+                    </div>
 
                     <div className="product-form-group">
-
-                        <label>
-                            Image URL
-                        </label>
-
+                        <label>Image URL</label>
                         <input
                             type="text"
                             name="images"
@@ -783,18 +444,10 @@ function AdminProducts() {
                             onChange={handleChange}
                             placeholder="https://..."
                         />
-
                     </div>
 
-
-                    {/* DESCRIPTION */}
-
                     <div className="product-form-group product-form-full">
-
-                        <label>
-                            Description
-                        </label>
-
+                        <label>Description</label>
                         <textarea
                             name="description"
                             value={form.description}
@@ -803,14 +456,9 @@ function AdminProducts() {
                             rows="5"
                             required
                         />
-
                     </div>
 
-
-                    {/* BUTTONS */}
-
                     <div className="product-form-actions">
-
                         <button
                             type="submit"
                             className="product-save-button"
@@ -820,9 +468,7 @@ function AdminProducts() {
                                 : "Add Product"}
                         </button>
 
-
                         {editingProductId && (
-
                             <button
                                 type="button"
                                 className="product-cancel-button"
@@ -830,235 +476,142 @@ function AdminProducts() {
                             >
                                 Cancel Edit
                             </button>
-
                         )}
-
                     </div>
-
                 </form>
-
             </div>
-
-
-            {/* ==================================================
-                PRODUCT LIST
-            ================================================== */}
 
             <div className="admin-products-list-section">
-
                 <div className="admin-products-list-header">
-
                     <div>
-
-                        <h2>
-                            Products
-                        </h2>
-
+                        <h2>Products</h2>
                         <p>
                             {products.length} product
-                            {products.length !== 1
-                                ? "s"
-                                : ""}
+                            {products.length !== 1 ? "s" : ""}
                         </p>
-
                     </div>
-
                 </div>
 
-
                 {products.length === 0 ? (
-
                     <div className="admin-products-empty">
-
-                        <h3>
-                            No products found.
-                        </h3>
-
+                        <h3>No products found.</h3>
                         <p>
-                            Add your first product using
-                            the form above.
+                            Add your first product using the form above.
                         </p>
-
                     </div>
-
                 ) : (
-
                     <div className="admin-products-grid">
-
-                        {products.map(
-                            (product) => (
-
-                                <div
-                                    className="admin-product-card"
-                                    key={product._id}
-                                >
-
-                                    {/* IMAGE */}
-
-                                    <div className="admin-product-image">
-
-                                        {product.images?.[0] ? (
-
-                                            <img
-                                                src={
-                                                    product.images[0]
-                                                }
-                                                alt={
-                                                    product.name
-                                                }
-                                            />
-
-                                        ) : (
-
-                                            <div className="no-product-image">
-                                                No Image
-                                            </div>
-
-                                        )}
-
-                                    </div>
-
-
-                                    {/* PRODUCT CONTENT */}
-
-                                    <div className="admin-product-content">
-
-                                        <div className="admin-product-top">
-
-                                            <div>
-
-                                                <h3>
-                                                    {product.name}
-                                                </h3>
-
-                                                <p className="product-brand">
-                                                    {product.brand ||
-                                                        "No brand"}
-                                                </p>
-
-                                            </div>
-
-
-                                            <span
-                                                className={
-                                                    product.stock > 0
-                                                        ? "product-stock-badge in-stock"
-                                                        : "product-stock-badge out-of-stock"
-                                                }
-                                            >
-                                                {product.stock > 0
-                                                    ? "In Stock"
-                                                    : "Out of Stock"}
-                                            </span>
-
+                        {products.map((product) => (
+                            <div
+                                className="admin-product-card"
+                                key={product._id}
+                            >
+                                <div className="admin-product-image">
+                                    {product.images?.[0] ? (
+                                        <img
+                                            src={product.images[0]}
+                                            alt={product.name}
+                                            loading="lazy"
+                                            decoding="async"
+                                        />
+                                    ) : (
+                                        <div className="no-product-image">
+                                            No Image
                                         </div>
-
-
-                                        {/* CATEGORY */}
-
-                                        <p className="product-category">
-
-                                            {product.category?.name ||
-                                                "No category"}
-
-                                        </p>
-
-
-                                        {/* DESCRIPTION */}
-
-                                        <p className="product-description">
-
-                                            {product.description ||
-                                                "No description available."}
-
-                                        </p>
-
-
-                                        {/* PRICE + STOCK */}
-
-                                        <div className="product-meta">
-
-                                            <div>
-
-                                                <span>
-                                                    PRICE
-                                                </span>
-
-                                                <strong>
-                                                    ₹
-                                                    {Number(
-                                                        product.price
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}
-                                                </strong>
-
-                                            </div>
-
-
-                                            <div>
-
-                                                <span>
-                                                    STOCK
-                                                </span>
-
-                                                <strong>
-                                                    {product.stock}
-                                                </strong>
-
-                                            </div>
-
-                                        </div>
-
-
-                                        {/* ACTIONS */}
-
-                                        <div className="product-card-actions">
-
-                                            <button
-                                                type="button"
-                                                className="product-edit-button"
-                                                onClick={() =>
-                                                    handleEdit(
-                                                        product
-                                                    )
-                                                }
-                                            >
-                                                Edit
-                                            </button>
-
-
-                                            <button
-                                                type="button"
-                                                className="product-delete-button"
-                                                onClick={() =>
-                                                    handleDelete(
-                                                        product._id
-                                                    )
-                                                }
-                                            >
-                                                Delete
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-
+                                    )}
                                 </div>
 
-                            )
-                        )}
+                                <div className="admin-product-content">
+                                    <div className="admin-product-top">
+                                        <div>
+                                            <h3>{product.name}</h3>
+                                            <p className="product-brand">
+                                                {product.brand ||
+                                                    "No brand"}
+                                            </p>
+                                        </div>
 
+                                        <span
+                                            className={
+                                                product.stock > 0
+                                                    ? "product-stock-badge in-stock"
+                                                    : "product-stock-badge out-of-stock"
+                                            }
+                                        >
+                                            {product.stock > 0
+                                                ? "In Stock"
+                                                : "Out of Stock"}
+                                        </span>
+                                    </div>
+
+                                    <p className="product-category">
+                                        {product.category?.name ||
+                                            "No category"}
+                                    </p>
+
+                                    {product.subcategory && (
+                                        <p className="product-category">
+                                            {product.subcategory}
+                                        </p>
+                                    )}
+
+                                    <p className="product-description">
+                                        {product.description ||
+                                            "No description available."}
+                                    </p>
+
+                                    <div className="product-meta">
+                                        <div>
+                                            <span>PRICE</span>
+                                            <strong>
+                                                ₹
+                                                {Number(
+                                                    product.price
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <span>STOCK</span>
+                                            <strong>
+                                                {product.stock}
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    <div className="product-card-actions">
+                                        <button
+                                            type="button"
+                                            className="product-edit-button"
+                                            onClick={() =>
+                                                handleEdit(product)
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="product-delete-button"
+                                            onClick={() =>
+                                                handleDelete(
+                                                    product._id
+                                                )
+                                            }
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-
                 )}
-
             </div>
-
         </div>
-
     );
-
 }
 
 export default AdminProducts;
