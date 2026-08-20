@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function getCategoryIcon(name = "") {
     const value = name.toLowerCase();
@@ -19,7 +19,10 @@ function getCategoryIcon(name = "") {
 }
 
 function Shop() {
+    const navigate = useNavigate();
+
     const [categories, setCategories] = useState([]);
+    const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -40,7 +43,10 @@ function Shop() {
 
                 setCategories(data.categories || []);
             } catch (requestError) {
-                console.error("Shop categories error:", requestError);
+                console.error(
+                    "Shop categories error:",
+                    requestError
+                );
                 setError(requestError.message);
             } finally {
                 setLoading(false);
@@ -50,14 +56,46 @@ function Shop() {
         fetchCategories();
     }, []);
 
+    const handleSearch = (event) => {
+        event.preventDefault();
+
+        if (!search.trim()) return;
+
+        navigate(
+            `/products?search=${encodeURIComponent(
+                search.trim()
+            )}`
+        );
+    };
+
     return (
         <main className="shop-page">
             <div className="shop-header">
                 <h1>Shop by Category</h1>
+
                 <p>
                     Browse PaisaVasool by category and discover products
                     that match what you are looking for.
                 </p>
+
+                <form
+                    className="shop-search"
+                    onSubmit={handleSearch}
+                >
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(event) =>
+                            setSearch(event.target.value)
+                        }
+                        placeholder="Search the entire catalogue..."
+                        autoComplete="off"
+                    />
+
+                    <button type="submit">
+                        Search
+                    </button>
+                </form>
             </div>
 
             {loading && (
