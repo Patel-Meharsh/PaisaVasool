@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
+import "../styles/ProductsPage.css";
 
 function Products() {
     const [products, setProducts] = useState([]);
@@ -18,10 +18,6 @@ function Products() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // ============================================================
-    // FETCH CATEGORIES
-    // ============================================================
-
     const fetchCategories = async () => {
         try {
             const response = await fetch(
@@ -38,44 +34,47 @@ function Products() {
         }
     };
 
-    // ============================================================
-    // FETCH PRODUCTS
-    // ============================================================
-
-    const fetchProducts = async () => {
+    const fetchProducts = async (overrides = {}) => {
         setLoading(true);
         setError("");
 
         try {
+            const currentSearch = overrides.search ?? search;
+            const currentCategory =
+                overrides.selectedCategory ?? selectedCategory;
+            const currentMinPrice = overrides.minPrice ?? minPrice;
+            const currentMaxPrice = overrides.maxPrice ?? maxPrice;
+            const currentSort = overrides.sort ?? sort;
+            const currentPage = overrides.page ?? page;
+
             const params = new URLSearchParams();
 
-            if (search.trim()) {
-                params.append("search", search.trim());
+            if (currentSearch.trim()) {
+                params.append("search", currentSearch.trim());
             }
 
-            if (selectedCategory) {
-                params.append("category", selectedCategory);
+            if (currentCategory) {
+                params.append("category", currentCategory);
             }
 
-            if (minPrice !== "") {
-                params.append("minPrice", minPrice);
+            if (currentMinPrice !== "") {
+                params.append("minPrice", currentMinPrice);
             }
 
-            if (maxPrice !== "") {
-                params.append("maxPrice", maxPrice);
+            if (currentMaxPrice !== "") {
+                params.append("maxPrice", currentMaxPrice);
             }
 
-            if (sort) {
-                params.append("sort", sort);
+            if (currentSort) {
+                params.append("sort", currentSort);
             }
 
-            params.append("page", page);
+            params.append("page", currentPage);
             params.append("limit", 12);
 
-            const url =
-                `http://localhost:5000/api/products?${params.toString()}`;
-
-            const response = await fetch(url);
+            const response = await fetch(
+                `http://localhost:5000/api/products?${params.toString()}`
+            );
 
             const data = await response.json();
 
@@ -87,7 +86,6 @@ function Products() {
 
             setProducts(data.products || []);
             setPagination(data.pagination || null);
-
         } catch (error) {
             console.error("Products error:", error);
             setError(error.message);
@@ -96,49 +94,25 @@ function Products() {
         }
     };
 
-    // ============================================================
-    // INITIAL LOAD
-    // ============================================================
-
     useEffect(() => {
         fetchCategories();
     }, []);
 
-    // ============================================================
-    // FETCH WHEN FILTERS CHANGE
-    // ============================================================
-
     useEffect(() => {
         fetchProducts();
-    }, [
-        page,
-        selectedCategory,
-        sort
-    ]);
-
-    // ============================================================
-    // SEARCH
-    // ============================================================
+    }, [page, selectedCategory, sort]);
 
     const handleSearch = (event) => {
         event.preventDefault();
         setPage(1);
-        fetchProducts();
+        fetchProducts({ page: 1 });
     };
-
-    // ============================================================
-    // FILTER
-    // ============================================================
 
     const handleFilter = (event) => {
         event.preventDefault();
         setPage(1);
-        fetchProducts();
+        fetchProducts({ page: 1 });
     };
-
-    // ============================================================
-    // CLEAR FILTERS
-    // ============================================================
 
     const handleClearFilters = () => {
         setSearch("");
@@ -147,11 +121,16 @@ function Products() {
         setMaxPrice("");
         setSort("");
         setPage(1);
-    };
 
-    // ============================================================
-    // LOADING
-    // ============================================================
+        fetchProducts({
+            search: "",
+            selectedCategory: "",
+            minPrice: "",
+            maxPrice: "",
+            sort: "",
+            page: 1
+        });
+    };
 
     if (loading) {
         return (
@@ -161,16 +140,11 @@ function Products() {
         );
     }
 
-    // ============================================================
-    // ERROR
-    // ============================================================
-
     if (error) {
         return (
             <div className="products-page">
                 <h2>Something went wrong</h2>
                 <p>{error}</p>
-
                 <button onClick={fetchProducts}>
                     Try Again
                 </button>
@@ -178,44 +152,23 @@ function Products() {
         );
     }
 
-    // ============================================================
-    // UI
-    // ============================================================
-
     return (
         <div className="products-page">
-
-            {/* ====================================================
-                HEADER
-            ==================================================== */}
-
             <div className="products-header">
-
                 <div>
                     <h1>Products</h1>
-
                     {pagination && (
                         <p>
                             {pagination.totalProducts} products available
                         </p>
                     )}
                 </div>
-
-                <Link to="/cart">
-                    View Cart
-                </Link>
-
             </div>
-
-            {/* ====================================================
-                SEARCH
-            ==================================================== */}
 
             <form
                 className="product-search"
                 onSubmit={handleSearch}
             >
-
                 <input
                     type="text"
                     placeholder="Search products..."
@@ -229,17 +182,19 @@ function Products() {
                     Search
                 </button>
 
+                <button
+                    type="button"
+                    className="product-clear-button"
+                    onClick={handleClearFilters}
+                >
+                    Clear
+                </button>
             </form>
-
-            {/* ====================================================
-                FILTERS
-            ==================================================== */}
 
             <form
                 className="product-filters"
                 onSubmit={handleFilter}
             >
-
                 <select
                     value={selectedCategory}
                     onChange={(event) => {
@@ -247,7 +202,6 @@ function Products() {
                         setPage(1);
                     }}
                 >
-
                     <option value="">
                         All Categories
                     </option>
@@ -260,7 +214,6 @@ function Products() {
                             {category.name}
                         </option>
                     ))}
-
                 </select>
 
                 <input
@@ -288,45 +241,27 @@ function Products() {
                         setPage(1);
                     }}
                 >
-
                     <option value="">
                         Sort By
                     </option>
-
                     <option value="price_asc">
                         Price: Low to High
                     </option>
-
                     <option value="price_desc">
                         Price: High to Low
                     </option>
-
                     <option value="name_asc">
                         Name: A to Z
                     </option>
-
                     <option value="name_desc">
                         Name: Z to A
                     </option>
-
                 </select>
 
                 <button type="submit">
                     Apply
                 </button>
-
-                <button
-                    type="button"
-                    onClick={handleClearFilters}
-                >
-                    Clear
-                </button>
-
             </form>
-
-            {/* ====================================================
-                SEARCH INFORMATION
-            ==================================================== */}
 
             {search && (
                 <p className="search-info">
@@ -335,44 +270,26 @@ function Products() {
                 </p>
             )}
 
-            {/* ====================================================
-                PRODUCTS
-            ==================================================== */}
-
             {products.length === 0 ? (
-
                 <div className="no-products">
                     <h2>No products found</h2>
-
                     <p>
                         Try changing your search or filters.
                     </p>
-
                 </div>
-
             ) : (
-
                 <div className="products-grid">
-
                     {products.map((product) => (
                         <ProductCard
                             key={product._id}
                             product={product}
                         />
                     ))}
-
                 </div>
-
             )}
 
-            {/* ====================================================
-                PAGINATION
-            ==================================================== */}
-
             {pagination && pagination.totalPages > 1 && (
-
                 <div className="pagination">
-
                     <button
                         disabled={!pagination.hasPreviousPage}
                         onClick={() =>
@@ -399,11 +316,8 @@ function Products() {
                     >
                         Next
                     </button>
-
                 </div>
-
             )}
-
         </div>
     );
 }
