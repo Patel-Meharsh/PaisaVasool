@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 
 function Products() {
@@ -40,10 +40,6 @@ function Products() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // ============================================================
-    // FETCH CATEGORIES
-    // ============================================================
-
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -70,10 +66,6 @@ function Products() {
 
         fetchCategories();
     }, []);
-
-    // ============================================================
-    // FETCH PRODUCT FACETS
-    // ============================================================
 
     useEffect(() => {
         const fetchFacets = async () => {
@@ -110,10 +102,6 @@ function Products() {
 
         fetchFacets();
     }, [searchParams]);
-
-    // ============================================================
-    // FETCH PRODUCTS FROM URL STATE
-    // ============================================================
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -157,10 +145,6 @@ function Products() {
         fetchProducts();
     }, [searchParams]);
 
-    // ============================================================
-    // SYNC FORM STATE WITH URL
-    // ============================================================
-
     useEffect(() => {
         setSearch(searchParams.get("search") || "");
         setSelectedCategory(searchParams.get("category") || "");
@@ -173,10 +157,6 @@ function Products() {
         setSort(searchParams.get("sort") || "");
         setPage(Number(searchParams.get("page")) || 1);
     }, [searchParams]);
-
-    // ============================================================
-    // APPLY SEARCH + FILTERS
-    // ============================================================
 
     const handleApply = (event) => {
         event.preventDefault();
@@ -197,10 +177,6 @@ function Products() {
 
         setSearchParams(nextParams);
     };
-
-    // ============================================================
-    // CATEGORY CHANGE
-    // ============================================================
 
     const handleCategoryChange = (event) => {
         const category = event.target.value;
@@ -223,10 +199,6 @@ function Products() {
         setSearchParams(nextParams);
     };
 
-    // ============================================================
-    // SORT CHANGE
-    // ============================================================
-
     const handleSortChange = (event) => {
         const nextSort = event.target.value;
         setSort(nextSort);
@@ -245,10 +217,6 @@ function Products() {
         setSearchParams(nextParams);
     };
 
-    // ============================================================
-    // CLEAR FILTERS
-    // ============================================================
-
     const handleClearFilters = () => {
         setSearch("");
         setSelectedCategory("");
@@ -261,10 +229,6 @@ function Products() {
         setSearchParams({ page: "1" });
     };
 
-    // ============================================================
-    // PAGINATION
-    // ============================================================
-
     const changePage = (nextPage) => {
         const nextParams = Object.fromEntries(
             searchParams.entries()
@@ -275,17 +239,9 @@ function Products() {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
-    // ============================================================
-    // ACTIVE CATEGORY NAME
-    // ============================================================
-
     const activeCategory = categories.find(
         (category) => category._id === selectedCategory
     );
-
-    // ============================================================
-    // LOADING
-    // ============================================================
 
     if (loading) {
         return (
@@ -296,10 +252,6 @@ function Products() {
             </div>
         );
     }
-
-    // ============================================================
-    // ERROR
-    // ============================================================
 
     if (error) {
         return (
@@ -317,10 +269,6 @@ function Products() {
         );
     }
 
-    // ============================================================
-    // UI
-    // ============================================================
-
     return (
         <main className="products-page">
             <div className="products-header">
@@ -335,15 +283,7 @@ function Products() {
                         </p>
                     )}
                 </div>
-
-                <Link to="/shop">
-                    Browse Categories
-                </Link>
             </div>
-
-            {/* ==================================================
-                SEARCH + CATEGORY-SPECIFIC FILTERS
-            ================================================== */}
 
             <form
                 className="product-search"
