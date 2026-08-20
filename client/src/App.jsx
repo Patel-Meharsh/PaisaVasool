@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import "./App.css";
+import "./marketplace.css";
 
 import Navbar from "./components/Navbar";
 
 import Home from "./pages/Home";
+import Shop from "./pages/Shop";
 import Products from "./pages/Products";
 import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
@@ -26,180 +28,68 @@ import Profile from "./pages/Profile";
 import PriceAlerts from "./pages/PriceAlerts";
 import Recommendations from "./pages/Recommendations";
 
-
 function App() {
-
     return (
-
         <BrowserRouter>
-
             <Navbar />
 
-
             <Routes>
+                {/* CUSTOMER PAGES */}
 
+                <Route path="/" element={<Home />} />
 
-                {/* ==================================================
-                    CUSTOMER PAGES
-                ================================================== */}
+                {/* Category-first shopping */}
+                <Route path="/shop" element={<Shop />} />
 
-
-                {/* HOME */}
-
-                <Route
-                    path="/"
-                    element={<Home />}
-                />
-
-
-                {/* PRODUCTS */}
-
-                <Route
-                    path="/products"
-                    element={<Products />}
-                />
-
-
-                {/* PRODUCT DETAILS */}
+                {/* Product catalogue */}
+                <Route path="/products" element={<Products />} />
 
                 <Route
                     path="/products/:id"
                     element={<ProductDetails />}
                 />
 
-
-                {/* REGISTER */}
-
-                <Route
-                    path="/register"
-                    element={<Register />}
-                />
-
-
-                {/* LOGIN */}
-
-                <Route
-                    path="/login"
-                    element={<Login />}
-                />
-
-
-                {/* CART */}
-
-                <Route
-                    path="/cart"
-                    element={<Cart />}
-                />
-
-
-                {/* CHECKOUT */}
-
-                <Route
-                    path="/checkout"
-                    element={<Checkout />}
-                />
-
-
-                {/* ORDER SUCCESS */}
+                <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
 
                 <Route
                     path="/order-success/:id"
                     element={<OrderSuccess />}
                 />
 
-
-                {/* MY ORDERS */}
-
-                <Route
-                    path="/orders"
-                    element={<Orders />}
-                />
-
-
-                {/* ORDER DETAILS */}
+                <Route path="/orders" element={<Orders />} />
 
                 <Route
                     path="/orders/:id"
                     element={<OrderDetails />}
                 />
 
-
-                {/* PROFILE */}
-
-                <Route
-                    path="/profile"
-                    element={<Profile />}
-                />
-
-
-                {/* PRICE ALERTS */}
+                <Route path="/profile" element={<Profile />} />
 
                 <Route
                     path="/price-alerts"
                     element={<PriceAlerts />}
                 />
 
+                {/* ADMIN PAGES */}
 
-                {/* ==================================================
-                    ADMIN PAGES
-                ================================================== */}
-
-
-                {/* ADMIN DASHBOARD */}
-
-                <Route
-                    path="/admin"
-                    element={<AdminDashboard />}
-                />
-
-
-                {/* ADMIN ORDERS */}
-
-                <Route
-                    path="/admin/orders"
-                    element={<AdminOrders />}
-                />
-
-
-                {/* ADMIN RETURNS */}
-
-                <Route
-                    path="/admin/returns"
-                    element={<AdminReturns />}
-                />
-
-
-                {/* ADMIN PRODUCTS */}
-
-                <Route
-                    path="/admin/products"
-                    element={<AdminProducts />}
-                />
-
-
-                {/* ADMIN CATEGORIES */}
-
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/orders" element={<AdminOrders />} />
+                <Route path="/admin/returns" element={<AdminReturns />} />
+                <Route path="/admin/products" element={<AdminProducts />} />
                 <Route
                     path="/admin/categories"
                     element={<AdminCategories />}
                 />
-
-
-                {/* ADMIN CUSTOMERS */}
-
                 <Route
                     path="/admin/customers"
                     element={<AdminCustomers />}
                 />
-
-
             </Routes>
-
         </BrowserRouter>
-
     );
-
 }
-
 
 export default App;
