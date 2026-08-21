@@ -35,56 +35,56 @@ function AdminProducts() {
                 return;
             }
 
-            // The public catalogue is intentionally limited to 50 per
-            // request. Admin Manage Products needs the complete catalogue,
-            // so fetch every page and combine the results here.
-            const firstResponse = await fetch(
-                "http://localhost:5000/api/products?limit=50&page=1"
-            );
+            // Public catalogue responses are capped at 50 products.
+            // Admin management must never silently stop at page 1.
+            const allProducts = [];
+            let page = 1;
+            let totalPages = 1;
 
-            const firstData = await firstResponse.json();
-
-            if (!firstResponse.ok) {
-                throw new Error(
-                    firstData.message || "Failed to fetch products"
+            do {
+                const response = await fetch(
+                    `http://localhost:5000/api/products?limit=50&page=${page}`
                 );
-            }
 
-            const allProducts = [
-                ...(firstData.products || [])
-            ];
+                const data = await response.json();
 
-            const totalPages =
-                firstData.pagination?.totalPages || 1;
-
-            if (totalPages > 1) {
-                const remainingRequests = [];
-
-                for (let page = 2; page <= totalPages; page += 1) {
-                    remainingRequests.push(
-                        fetch(
-                            `http://localhost:5000/api/products?limit=50&page=${page}`
-                        )
+                if (!response.ok) {
+                    throw new Error(
+                        data.message || "Failed to fetch products"
                     );
                 }
 
-                const remainingResponses =
-                    await Promise.all(remainingRequests);
+                const pageProducts = data.products || [];
+                allProducts.push(...pageProducts);
 
-                for (const response of remainingResponses) {
-                    const data = await response.json();
+                totalPages =
+                    Number(data.pagination?.totalPages) || 1;
 
-                    if (!response.ok) {
-                        throw new Error(
-                            data.message || "Failed to fetch products"
-                        );
-                    }
+                // Continue using the response metadata, but also keep
+                // fetching when a full page is returned. This protects the
+                // admin list if pagination metadata is stale or inconsistent.
+                const hasAnotherPage =
+                    page < totalPages || pageProducts.length === 50;
 
-                    allProducts.push(...(data.products || []));
+                if (!hasAnotherPage) {
+                    break;
                 }
-            }
 
-            setProducts(allProducts);
+                page += 1;
+            } while (page <= 1000);
+
+            // Prevent accidental duplicates if an API page changes while
+            // the admin list is loading.
+            const uniqueProducts = Array.from(
+                new Map(
+                    allProducts.map((product) => [
+                        product._id,
+                        product
+                    ])
+                ).values()
+            );
+
+            setProducts(uniqueProducts);
         } catch (requestError) {
             console.error("Fetch products error:", requestError);
             setError(requestError.message);

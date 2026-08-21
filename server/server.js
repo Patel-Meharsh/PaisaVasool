@@ -51,6 +51,9 @@ const {
 const validateProductQuery =
     require("./src/middleware/productQueryMiddleware");
 
+const backfillProductSubcategories =
+    require("./src/utils/backfillProductSubcategories");
+
 
 // ============================================================
 // GLOBAL MIDDLEWARE
@@ -221,6 +224,22 @@ mongoose
         console.log(
             "MongoDB connected successfully"
         );
+
+        // --------------------------------------------------------
+        // BACKFILL LEGACY PRODUCT SUBCATEGORIES
+        // --------------------------------------------------------
+        // Older catalogue records may not have a subcategory.
+        // Classify them once they are loaded so type filters and
+        // deterministic catalogue grouping work for all products.
+
+        try {
+            await backfillProductSubcategories();
+        } catch (migrationError) {
+            console.error(
+                "Product subcategory migration failed:",
+                migrationError.message
+            );
+        }
 
         // --------------------------------------------------------
         // OPTIONAL ONE-TIME CATALOGUE SEED

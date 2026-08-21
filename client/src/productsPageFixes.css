@@ -3,7 +3,8 @@
 ============================================================ */
 
 /* Keep exactly one orange accent line beside the page heading. */
-.products-header > div::before {
+.products-header > div::before,
+.products-header h1::before {
     display: none;
 }
 
