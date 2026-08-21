@@ -227,18 +227,22 @@ async function seedCatalogue() {
         index => catalogueImage("bluetooth-speaker,speaker,audio", 2401 + index)
     );
 
-    const operations = products.map(item => ({
-        updateOne: {
-            filter: { name: item.name },
-            update: {
-                $set: {
-                    images: item.images
+    const operations = products.map(item => {
+        const { images, ...insertItem } = item;
+
+        return {
+            updateOne: {
+                filter: { name: item.name },
+                update: {
+                    $set: {
+                        images
+                    },
+                    $setOnInsert: insertItem
                 },
-                $setOnInsert: item
-            },
-            upsert: true
-        }
-    }));
+                upsert: true
+            }
+        };
+    });
 
     const result = await Product.bulkWrite(operations, {
         ordered: false
