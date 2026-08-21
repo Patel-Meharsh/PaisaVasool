@@ -5,6 +5,27 @@ const PriceAlert = require("../models/PriceAlert");
 
 const { sendPriceDropAlertEmail } = require("../utils/sendEmail");
 
+const escapeRegex = (value) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const TYPE_PATTERNS = {
+    phone: /phone|smartphone|iphone|galaxy|pixel|vivo|oneplus|xiaomi|redmi|realme|oppo|motorola|nothing/i,
+    tv: /\btv\b|television|smart tv|oled|qled/i,
+    ac: /\bac\b|air conditioner|air-conditioner/i,
+    headphone: /headphone|headset|earbud|earphone|airpods/i,
+    speaker: /speaker|soundlink|soundbar/i,
+    pant: /pant|jeans|trouser|cargo/i,
+    shirt: /shirt/i,
+    tshirt: /t-?shirt/i,
+    top: /\btop\b/i
+};
+
+const getTypeRegex = (type) => {
+    if (!type) return null;
+    const normalized = type.trim().toLowerCase();
+    return TYPE_PATTERNS[normalized] || new RegExp(escapeRegex(type.trim()), "i");
+};
+
 const processPriceAlerts = async (productId, newPrice) => {
     const product = await Product.findById(productId).populate(
         "category",
@@ -109,6 +130,8 @@ const getProducts = async (req, res) => {
         const {
             search,
             category,
+            brand,
+            type,
             minPrice,
             maxPrice,
             sort,
@@ -127,6 +150,24 @@ const getProducts = async (req, res) => {
         }
 
         if (category) filter.category = category;
+
+        // Brand matching is case-insensitive and exact after trimming.
+        // This prevents values such as "Apple", "apple" and " Apple "
+        // from behaving as different brands.
+        if (brand && brand.trim()) {
+            filter.brand = {
+                $regex: `^${escapeRegex(brand.trim())}$`,
+                $options: "i"
+            };
+        }
+
+        // Type is derived from the product name because the existing
+        // Product schema does not store a separate type field.
+        if (type && type.trim()) {
+            filter.name = {
+                $regex: getTypeRegex(type.trim())
+            };
+        }
 
         if (minPrice !== undefined) {
             filter.price = {
@@ -148,30 +189,227 @@ const getProducts = async (req, res) => {
             50
         );
 
-        const sortOption = {
-            price_asc: { price: 1 },
-            price_desc: { price: -1 },
-            name_asc: { name: 1 },
-            name_desc: { name: -1 }
-        }[sort] || { createdAt: -1 };
-
         const totalProducts = await Product.countDocuments(filter);
-
-        const products = await Product.find(filter, {
-            name: 1,
-            description: 1,
-            price: 1,
-            stock: 1,
-            images: 1,
-            brand: 1,
-            category: 1
-        })
-            .populate("category", "name")
-            .sort(sortOption)
-            .skip((pageNumber - 1) * limitNumber)
-            .limit(limitNumber);
-
         const totalPages = Math.ceil(totalProducts / limitNumber);
+
+        // Explicit user-selected sorting keeps its existing behaviour.
+        if (sort) {
+            const sortOption = {
+                price_asc: { price: 1, name: 1, _id: 1 },
+                price_desc: { price: -1, name: 1, _id: 1 },
+                name_asc: { name: 1, _id: 1 },
+                name_desc: { name: -1, _id: 1 }
+            }[sort];
+
+            const products = await Product.find(filter, {
+                name: 1,
+                description: 1,
+                price: 1,
+                stock: 1,
+                images: 1,
+                brand: 1,
+                category: 1
+            })
+                .populate("category", "name")
+                .sort(sortOption)
+                .skip((pageNumber - 1) * limitNumber)
+                .limit(limitNumber)
+                .lean();
+
+            return res.status(200).json({
+                message: "Products fetched successfully",
+                products,
+                pagination: {
+                    currentPage: pageNumber,
+                    totalPages,
+                    totalProducts,
+                    limit: limitNumber,
+                    hasNextPage: pageNumber < totalPages,
+                    hasPreviousPage: pageNumber > 1
+                }
+            });
+        }
+
+        // Default catalogue order is deterministic and type-grouped.
+        // This prevents products from appearing in insertion/createdAt order
+        // such as clothing -> electronics -> clothing -> electronics.
+        const products = await Product.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "category",
+                    foreignField: "_id",
+                    as: "categoryData"
+                }
+            },
+            {
+                $unwind: {
+                    path: "$categoryData",
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $addFields: {
+                    categoryName: {
+                        $ifNull: ["$categoryData.name", "Other"]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    categoryRank: {
+                        $switch: {
+                            branches: [
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$categoryName",
+                                            regex: "^electronics$",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 1
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$categoryName",
+                                            regex: "^clothing$|^clothes$|^fashion$",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 2
+                                }
+                            ],
+                            default: 3
+                        }
+                    },
+                    typeRank: {
+                        $switch: {
+                            branches: [
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "phone|smartphone|iphone|galaxy|pixel|vivo|oneplus|xiaomi|redmi|realme|oppo|motorola|nothing",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 1
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "\\btv\\b|television|smart tv|oled|qled",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 2
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "\\bac\\b|air conditioner|air-conditioner",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 3
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "headphone|headset|earbud|earphone|airpods",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 4
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "speaker|soundlink|soundbar",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 5
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "pant|jeans|trouser|cargo",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 1
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "shirt",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 2
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "t-?shirt",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 3
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "\\btop\\b",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 4
+                                }
+                            ],
+                            default: 99
+                        }
+                    }
+                }
+            },
+            {
+                $sort: {
+                    categoryRank: 1,
+                    typeRank: 1,
+                    brand: 1,
+                    name: 1,
+                    _id: 1
+                }
+            },
+            { $skip: (pageNumber - 1) * limitNumber },
+            { $limit: limitNumber },
+            {
+                $project: {
+                    name: 1,
+                    description: 1,
+                    price: 1,
+                    stock: 1,
+                    images: 1,
+                    brand: 1,
+                    category: {
+                        _id: "$categoryData._id",
+                        name: "$categoryData.name"
+                    }
+                }
+            }
+        ]);
 
         return res.status(200).json({
             message: "Products fetched successfully",
