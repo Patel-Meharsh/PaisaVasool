@@ -153,12 +153,21 @@ const getProducts = async (req, res) => {
             filter.category = category;
         }
 
-        if (subcategory?.trim()) {
-            filter.subcategory = subcategory.trim();
+        // Brand matching is deliberately case-insensitive.
+        // This means Apple, apple and APPLE all match the same brand.
+        if (brand?.trim()) {
+            filter.brand = {
+                $regex: `^${escapeRegex(brand.trim())}$`,
+                $options: "i"
+            };
         }
 
-        if (brand?.trim()) {
-            filter.brand = brand.trim();
+        // Type/subcategory matching is also case-insensitive.
+        if (subcategory?.trim()) {
+            filter.subcategory = {
+                $regex: `^${escapeRegex(subcategory.trim())}$`,
+                $options: "i"
+            };
         }
 
         const parsedMinPrice =
@@ -217,13 +226,6 @@ const getProducts = async (req, res) => {
             50
         );
 
-        const sortOption = {
-            price_asc: { price: 1, _id: 1 },
-            price_desc: { price: -1, _id: 1 },
-            name_asc: { name: 1, _id: 1 },
-            name_desc: { name: -1, _id: 1 }
-        }[sort] || { createdAt: -1, _id: -1 };
-
         const projection = {
             name: 1,
             description: 1,
@@ -237,17 +239,288 @@ const getProducts = async (req, res) => {
 
         const skip = (pageNumber - 1) * limitNumber;
 
-        // Count and fetch in parallel. lean() avoids the overhead of
-        // creating full Mongoose documents for catalogue cards.
-        const [totalProducts, products] = await Promise.all([
-            Product.countDocuments(filter),
-            Product.find(filter, projection)
+        const sortOption = {
+            price_asc: { price: 1, _id: 1 },
+            price_desc: { price: -1, _id: 1 },
+            name_asc: { name: 1, _id: 1 },
+            name_desc: { name: -1, _id: 1 }
+        }[sort];
+
+        const totalProducts = await Product.countDocuments(filter);
+
+        let products;
+
+        if (sortOption) {
+            // Explicit user-selected sorting takes priority over the
+            // catalogue grouping order.
+            products = await Product.find(filter, projection)
                 .populate("category", "name")
                 .sort(sortOption)
                 .skip(skip)
                 .limit(limitNumber)
-                .lean()
-        ]);
+                .lean();
+        } else {
+            // Default catalogue order:
+            //
+            // Clothing
+            //   Pants -> Shirts -> T-Shirts -> Tops
+            //
+            // Electronics
+            //   Smartphones -> Televisions -> Air Conditioners
+            //   -> Headphones -> Speakers
+            //
+            // We calculate these keys in MongoDB so pagination happens
+            // after the deterministic ordering instead of sorting the
+            // entire result set in JavaScript.
+            const pipeline = [
+                { $match: filter },
+
+                {
+                    $lookup: {
+                        from: "categories",
+                        localField: "category",
+                        foreignField: "_id",
+                        pipeline: [
+                            {
+                                $project: {
+                                    _id: 1,
+                                    name: 1,
+                                    description: 1
+                                }
+                            }
+                        ],
+                        as: "categoryData"
+                    }
+                },
+
+                {
+                    $unwind: {
+                        path: "$categoryData",
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+
+                {
+                    $addFields: {
+                        catalogueCategoryOrder: {
+                            $switch: {
+                                branches: [
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$categoryData.name",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "clothing"
+                                            ]
+                                        },
+                                        then: 1
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$categoryData.name",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "electronics"
+                                            ]
+                                        },
+                                        then: 2
+                                    }
+                                ],
+                                default: 99
+                            }
+                        },
+                        catalogueTypeOrder: {
+                            $switch: {
+                                branches: [
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "pants"
+                                            ]
+                                        },
+                                        then: 1
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "shirts"
+                                            ]
+                                        },
+                                        then: 2
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "t-shirts"
+                                            ]
+                                        },
+                                        then: 3
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "tops"
+                                            ]
+                                        },
+                                        then: 4
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "smartphones"
+                                            ]
+                                        },
+                                        then: 1
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "televisions"
+                                            ]
+                                        },
+                                        then: 2
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "air conditioners"
+                                            ]
+                                        },
+                                        then: 3
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "headphones"
+                                            ]
+                                        },
+                                        then: 4
+                                    },
+                                    {
+                                        case: {
+                                            $eq: [
+                                                {
+                                                    $toLower: {
+                                                        $ifNull: [
+                                                            "$subcategory",
+                                                            ""
+                                                        ]
+                                                    }
+                                                },
+                                                "speakers"
+                                            ]
+                                        },
+                                        then: 5
+                                    }
+                                ],
+                                default: 99
+                            }
+                        }
+                    }
+                },
+
+                {
+                    $sort: {
+                        catalogueCategoryOrder: 1,
+                        catalogueTypeOrder: 1,
+                        name: 1,
+                        _id: 1
+                    }
+                },
+
+                { $skip: skip },
+                { $limit: limitNumber },
+
+                {
+                    $project: {
+                        ...projection,
+                        category: {
+                            _id: "$categoryData._id",
+                            name: "$categoryData.name",
+                            description: "$categoryData.description"
+                        }
+                    }
+                }
+            ];
+
+            products = await Product.aggregate(pipeline).allowDiskUse(true);
+        }
 
         const totalPages = Math.ceil(
             totalProducts / limitNumber
@@ -498,6 +771,9 @@ const deleteProduct = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
+
+const escapeRegex = (value) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 module.exports = {
     createProduct,
