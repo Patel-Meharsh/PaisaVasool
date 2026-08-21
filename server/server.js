@@ -216,11 +216,37 @@ const MONGO_URI = process.env.MONGO_URI;
 
 mongoose
     .connect(MONGO_URI)
-    .then(() => {
+    .then(async () => {
 
         console.log(
             "MongoDB connected successfully"
         );
+
+        // --------------------------------------------------------
+        // OPTIONAL ONE-TIME CATALOGUE SEED
+        // --------------------------------------------------------
+        // This is controlled entirely by the environment variable
+        // so normal production startups never modify catalogue data.
+
+        if (
+            process.env.SEED_CATALOGUE === "true"
+        ) {
+            try {
+                const seedCatalogue =
+                    require("./src/utils/seedCatalogue");
+
+                await seedCatalogue();
+
+                console.log(
+                    "Catalogue seed finished successfully."
+                );
+            } catch (seedError) {
+                console.error(
+                    "Catalogue seed failed:",
+                    seedError.message
+                );
+            }
+        }
 
         app.listen(
             PORT,
