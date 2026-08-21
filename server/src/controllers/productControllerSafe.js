@@ -10,14 +10,26 @@ const escapeRegex = (value) =>
 
 const TYPE_PATTERNS = {
     phone: /phone|smartphone|iphone|galaxy|pixel|vivo|oneplus|xiaomi|redmi|realme|oppo|motorola|nothing/i,
+    smartphones: /phone|smartphone|iphone|galaxy|pixel|vivo|oneplus|xiaomi|redmi|realme|oppo|motorola|nothing/i,
     tv: /\btv\b|television|smart tv|oled|qled/i,
+    tvs: /\btv\b|television|smart tv|oled|qled/i,
+    television: /\btv\b|television|smart tv|oled|qled/i,
+    televisions: /\btv\b|television|smart tv|oled|qled/i,
     ac: /\bac\b|air conditioner|air-conditioner/i,
+    "air conditioner": /\bac\b|air conditioner|air-conditioner/i,
+    "air conditioners": /\bac\b|air conditioner|air-conditioner/i,
     headphone: /headphone|headset|earbud|earphone|airpods/i,
+    headphones: /headphone|headset|earbud|earphone|airpods/i,
     speaker: /speaker|soundlink|soundbar/i,
+    speakers: /speaker|soundlink|soundbar/i,
     pant: /pant|jeans|trouser|cargo/i,
+    pants: /pant|jeans|trouser|cargo/i,
     shirt: /shirt/i,
+    shirts: /shirt/i,
     tshirt: /t-?shirt/i,
-    top: /\btop\b/i
+    tshirts: /t-?shirt/i,
+    top: /\btop\b/i,
+    tops: /\btop\b/i
 };
 
 const getTypeRegex = (type) => {
@@ -161,7 +173,6 @@ const getProducts = async (req, res) => {
             filter.category = new mongoose.Types.ObjectId(category.trim());
         }
 
-        // Brand matching is case-insensitive and exact after trimming.
         if (brand && brand.trim()) {
             filter.brand = {
                 $regex: `^${escapeRegex(brand.trim())}$`,
@@ -170,7 +181,8 @@ const getProducts = async (req, res) => {
         }
 
         // Type is derived from the product name because the existing
-        // Product schema does not store a separate type field.
+        // Product schema does not store a separate type field. Both singular
+        // and plural UI labels are supported (e.g. phone/smartphones).
         if (type && type.trim()) {
             filter.name = {
                 $regex: getTypeRegex(type.trim())
@@ -242,8 +254,6 @@ const getProducts = async (req, res) => {
         }
 
         // Default catalogue order is deterministic and type-grouped.
-        // The category filter above is explicitly cast to ObjectId so the
-        // aggregation matches the same documents counted above.
         const products = await Product.aggregate([
             { $match: filter },
             {
