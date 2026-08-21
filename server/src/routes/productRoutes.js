@@ -11,12 +11,15 @@ const {
 
 const {
     createProduct,
-    getProducts,
-    getProductFacets,
     getProductById,
     updateProduct,
     deleteProduct
 } = require("../controllers/productControllerSafe");
+
+const {
+    getProducts,
+    getProductFacets
+} = require("../controllers/productCatalogueController");
 
 const {
     getRecommendations
