@@ -15,6 +15,9 @@ const IMAGE = {
     homeTech: "https://images.unsplash.com/photo-1565182999561-18d7dc61c393?auto=format&fit=crop&w=640&q=70"
 };
 
+const catalogueImage = (keywords, lock) =>
+    `https://loremflickr.com/640/640/${keywords}?lock=${lock}`;
+
 const makeProduct = (name, description, price, stock, brand, category, subcategory, image) => ({
     name,
     description,
@@ -39,7 +42,7 @@ async function ensureCategory(name, description) {
         },
         {
             upsert: true,
-            new: true,
+            returnDocument: "after",
             setDefaultsOnInsert: true
         }
     );
@@ -67,7 +70,7 @@ async function seedCatalogue() {
                     price,
                     12 + (index % 15),
                     brand,
-                    category._id,
+                    category,
                     subcategory,
                     imagePicker(index)
                 )
@@ -91,7 +94,7 @@ async function seedCatalogue() {
         clothing,
         "Pants",
         "premium pants designed for everyday comfort and versatile styling",
-        index => index % 2 ? IMAGE.fashion : IMAGE.pants
+        index => catalogueImage("jeans,pants,fashion", 1001 + index)
     );
 
     addGroup(
@@ -110,7 +113,7 @@ async function seedCatalogue() {
         clothing,
         "Shirts",
         "comfortable shirts suitable for work and casual wear",
-        index => index % 2 ? IMAGE.fashion : IMAGE.clothing
+        index => catalogueImage("shirt,clothing,fashion", 1101 + index)
     );
 
     addGroup(
@@ -129,7 +132,7 @@ async function seedCatalogue() {
         clothing,
         "T-Shirts",
         "everyday T-shirts made for comfort and casual styling",
-        index => index % 3 ? IMAGE.clothing : IMAGE.fashion
+        index => catalogueImage("tshirt,clothing,fashion", 1201 + index)
     );
 
     addGroup(
@@ -148,7 +151,7 @@ async function seedCatalogue() {
         clothing,
         "Tops",
         "contemporary tops with comfortable fits and versatile styling",
-        index => index % 2 ? IMAGE.clothing : IMAGE.fashion
+        index => catalogueImage("top,womens-fashion,clothing", 1301 + index)
     );
 
     addGroup(
@@ -167,7 +170,7 @@ async function seedCatalogue() {
         electronics,
         "Smartphones",
         "flagship smartphone for the August 2026 catalogue",
-        index => [IMAGE.phone, IMAGE.phone2, IMAGE.phone3][index % 3]
+        index => catalogueImage("smartphone,phone,electronics", 2001 + index)
     );
 
     addGroup(
@@ -181,7 +184,7 @@ async function seedCatalogue() {
         electronics,
         "Televisions",
         "smart television with a large 4K display and streaming features",
-        () => IMAGE.tv
+        index => catalogueImage("television,smart-tv,electronics", 2101 + index)
     );
 
     addGroup(
@@ -195,7 +198,7 @@ async function seedCatalogue() {
         electronics,
         "Air Conditioners",
         "energy-efficient inverter split air conditioner for comfortable home cooling",
-        () => IMAGE.homeTech
+        index => catalogueImage("air-conditioner,appliance,home", 2201 + index)
     );
 
     addGroup(
@@ -208,7 +211,7 @@ async function seedCatalogue() {
         electronics,
         "Headphones",
         "wireless over-ear headphones with premium sound and active noise cancellation",
-        index => index % 2 ? IMAGE.headphones2 : IMAGE.headphones
+        index => catalogueImage("headphones,audio,electronics", 2301 + index)
     );
 
     addGroup(
@@ -221,13 +224,18 @@ async function seedCatalogue() {
         electronics,
         "Speakers",
         "portable Bluetooth speaker designed for powerful wireless audio",
-        () => IMAGE.speaker
+        index => catalogueImage("bluetooth-speaker,speaker,audio", 2401 + index)
     );
 
     const operations = products.map(item => ({
         updateOne: {
             filter: { name: item.name },
-            update: { $setOnInsert: item },
+            update: {
+                $set: {
+                    images: item.images
+                },
+                $setOnInsert: item
+            },
             upsert: true
         }
     }));
@@ -237,7 +245,7 @@ async function seedCatalogue() {
     });
 
     console.log(
-        `Catalogue seed complete: ${products.length} requested, ${result.upsertedCount} inserted.`
+        `Catalogue seed complete: ${products.length} requested, ${result.upsertedCount} inserted/updated.`
     );
 
     return result;
