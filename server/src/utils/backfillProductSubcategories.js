@@ -2,12 +2,12 @@ const Product = require("../models/Product");
 const Category = require("../models/Category");
 
 // ============================================================
-// BACKFILL PRODUCT SUBCATEGORIES
+// NORMALIZE PRODUCT SUBCATEGORIES
 // ============================================================
-// Older products were created before the subcategory field existed.
-// Their category/type filters and catalogue grouping therefore cannot
-// classify them correctly. This migration only touches active products
-// whose subcategory is empty or missing, so it is safe to run at startup.
+// Some catalogue records were created before the subcategory field
+// was standardized. We classify products from their names and write
+// canonical type names so filters and catalogue grouping use one
+// consistent value for every product.
 
 const CATEGORY_RULES = {
     Electronics: [
@@ -68,11 +68,6 @@ async function backfillProductSubcategories() {
                 {
                     isActive: true,
                     category: category._id,
-                    $or: [
-                        { subcategory: { $exists: false } },
-                        { subcategory: "" },
-                        { subcategory: null }
-                    ],
                     name: { $regex: rule.pattern }
                 },
                 {
@@ -86,11 +81,9 @@ async function backfillProductSubcategories() {
         }
     }
 
-    if (updatedCount > 0) {
-        console.log(
-            `Product subcategory migration complete: ${updatedCount} product(s) classified.`
-        );
-    }
+    console.log(
+        `Product subcategory normalization complete: ${updatedCount} product(s) normalized.`
+    );
 
     return updatedCount;
 }
