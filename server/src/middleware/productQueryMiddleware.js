@@ -4,13 +4,10 @@
 
 const mongoose = require("mongoose");
 
-
-// Product search is implemented with MongoDB regular expressions.
-// Escape user input so regex metacharacters cannot create expensive
-// or unintended patterns.
+// Escape user input so regex metacharacters cannot create
+// unintended patterns.
 const escapeRegex = (value) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 
 const validateProductQuery = (req, res, next) => {
     const {
@@ -34,17 +31,21 @@ const validateProductQuery = (req, res, next) => {
     }
 
     if (category !== undefined) {
-        if (!mongoose.Types.ObjectId.isValid(category)) {
+        if (
+            typeof category !== "string" ||
+            !mongoose.Types.ObjectId.isValid(category)
+        ) {
             return res.status(400).json({
                 message: "Invalid category ID"
             });
         }
 
-        // Important: the catalogue default-order query uses MongoDB
-        // aggregation. Aggregation does not automatically cast a string
-        // category ID to ObjectId like Model.find() does. Normalize it
-        // here once so both query paths behave identically.
-        req.query.category = new mongoose.Types.ObjectId(category);
+        // Keep the category as a string. Mongoose find()/distinct()
+        // automatically cast this value to ObjectId. The previous
+        // middleware converted it into an ObjectId before the controller,
+        // which made the aggregation and normal-query paths behave
+        // differently.
+        req.query.category = category.trim();
     }
 
     const allowedSorts = [
@@ -61,6 +62,14 @@ const validateProductQuery = (req, res, next) => {
         return res.status(400).json({
             message: "Invalid sort option"
         });
+    }
+
+    // When a category is selected without an explicit sort, use the
+    // normal Mongoose query path. This guarantees ObjectId casting for
+    // the category filter. The catalogue's unfiltered request continues
+    // to use the aggregation path for category/type grouping.
+    if (category !== undefined && sort === undefined) {
+        req.query.sort = "name_asc";
     }
 
     const numericFields = [
@@ -94,6 +103,7 @@ const validateProductQuery = (req, res, next) => {
 
     if (page !== undefined) {
         const pageNumber = Number(page);
+
         if (!Number.isInteger(pageNumber) || pageNumber < 1) {
             return res.status(400).json({
                 message: "Page must be a positive integer"
@@ -103,6 +113,7 @@ const validateProductQuery = (req, res, next) => {
 
     if (limit !== undefined) {
         const limitNumber = Number(limit);
+
         if (
             !Number.isInteger(limitNumber) ||
             limitNumber < 1 ||
