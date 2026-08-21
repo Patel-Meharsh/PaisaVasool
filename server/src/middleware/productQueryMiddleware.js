@@ -5,9 +5,9 @@
 const mongoose = require("mongoose");
 
 
-// Product search is implemented with MongoDB regular expressions.
-// Escape user input so regex metacharacters cannot create expensive
-// or unintended patterns.
+// Product search/filter values are implemented with MongoDB
+// regular expressions. Escape user input so regex metacharacters
+// cannot create expensive or unintended patterns.
 const escapeRegex = (value) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -16,6 +16,8 @@ const validateProductQuery = (req, res, next) => {
     const {
         search,
         category,
+        brand,
+        type,
         minPrice,
         maxPrice,
         sort,
@@ -31,6 +33,26 @@ const validateProductQuery = (req, res, next) => {
         }
 
         req.query.search = escapeRegex(search.trim());
+    }
+
+    if (brand !== undefined) {
+        if (typeof brand !== "string" || brand.length > 100) {
+            return res.status(400).json({
+                message: "Brand filter is invalid or too long"
+            });
+        }
+
+        req.query.brand = brand.trim();
+    }
+
+    if (type !== undefined) {
+        if (typeof type !== "string" || type.length > 50) {
+            return res.status(400).json({
+                message: "Type filter is invalid or too long"
+            });
+        }
+
+        req.query.type = type.trim();
     }
 
     if (category !== undefined) {
