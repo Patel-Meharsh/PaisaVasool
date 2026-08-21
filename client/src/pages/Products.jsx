@@ -32,11 +32,7 @@ function Products() {
         searchParams.get("sort") || ""
     );
 
-    const [page, setPage] = useState(
-        Number(searchParams.get("page")) || 1
-    );
     const [pagination, setPagination] = useState(null);
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -155,7 +151,6 @@ function Products() {
         setMinPrice(searchParams.get("minPrice") || "");
         setMaxPrice(searchParams.get("maxPrice") || "");
         setSort(searchParams.get("sort") || "");
-        setPage(Number(searchParams.get("page")) || 1);
     }, [searchParams]);
 
     const handleApply = (event) => {
@@ -163,18 +158,35 @@ function Products() {
 
         const nextParams = {};
 
-        if (search.trim()) nextParams.search = search.trim();
-        if (selectedCategory) nextParams.category = selectedCategory;
+        if (search.trim()) {
+            nextParams.search = search.trim();
+        }
+
+        if (selectedCategory) {
+            nextParams.category = selectedCategory;
+        }
+
         if (selectedSubcategory) {
             nextParams.subcategory = selectedSubcategory;
         }
-        if (selectedBrand) nextParams.brand = selectedBrand;
-        if (minPrice !== "") nextParams.minPrice = minPrice;
-        if (maxPrice !== "") nextParams.maxPrice = maxPrice;
-        if (sort) nextParams.sort = sort;
+
+        if (selectedBrand) {
+            nextParams.brand = selectedBrand;
+        }
+
+        if (minPrice !== "") {
+            nextParams.minPrice = minPrice;
+        }
+
+        if (maxPrice !== "") {
+            nextParams.maxPrice = maxPrice;
+        }
+
+        if (sort) {
+            nextParams.sort = sort;
+        }
 
         nextParams.page = "1";
-
         setSearchParams(nextParams);
     };
 
@@ -184,18 +196,30 @@ function Products() {
         setSelectedCategory(category);
         setSelectedSubcategory("");
         setSelectedBrand("");
-        setPage(1);
 
         const nextParams = {};
 
-        if (search.trim()) nextParams.search = search.trim();
-        if (category) nextParams.category = category;
-        if (minPrice !== "") nextParams.minPrice = minPrice;
-        if (maxPrice !== "") nextParams.maxPrice = maxPrice;
-        if (sort) nextParams.sort = sort;
+        if (search.trim()) {
+            nextParams.search = search.trim();
+        }
+
+        if (category) {
+            nextParams.category = category;
+        }
+
+        if (minPrice !== "") {
+            nextParams.minPrice = minPrice;
+        }
+
+        if (maxPrice !== "") {
+            nextParams.maxPrice = maxPrice;
+        }
+
+        if (sort) {
+            nextParams.sort = sort;
+        }
 
         nextParams.page = "1";
-
         setSearchParams(nextParams);
     };
 
@@ -225,7 +249,6 @@ function Products() {
         setMinPrice("");
         setMaxPrice("");
         setSort("");
-        setPage(1);
         setSearchParams({ page: "1" });
     };
 
@@ -243,258 +266,323 @@ function Products() {
         (category) => category._id === selectedCategory
     );
 
+    const activeFilterCount = [
+        selectedCategory,
+        selectedSubcategory,
+        selectedBrand,
+        minPrice,
+        maxPrice,
+        sort
+    ].filter(Boolean).length;
+
     if (loading) {
         return (
-            <div className="products-page">
+            <main className="products-page">
                 <div className="shop-loading">
                     Loading products...
                 </div>
-            </div>
+            </main>
         );
     }
 
     if (error) {
         return (
-            <div className="products-page">
-                <h2>Something went wrong</h2>
-                <p>{error}</p>
+            <main className="products-page">
+                <div className="products-error-state">
+                    <h2>Something went wrong</h2>
+                    <p>{error}</p>
 
-                <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                >
-                    Try Again
-                </button>
-            </div>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </main>
         );
     }
 
     return (
         <main className="products-page">
-            <div className="products-header">
+            <header className="products-header">
                 <div>
-                    <h1>
-                        {activeCategory?.name || "Products"}
-                    </h1>
+                    <h1>{activeCategory?.name || "Products"}</h1>
 
                     {pagination && (
                         <p>
-                            {pagination.totalProducts} products available
+                            <strong>{pagination.totalProducts}</strong>{" "}
+                            products available
                         </p>
                     )}
                 </div>
-            </div>
+            </header>
 
-            <form
-                className="product-search"
-                onSubmit={handleApply}
-            >
-                <input
-                    type="text"
-                    placeholder="Search products, brands or types..."
-                    value={search}
-                    onChange={(event) =>
-                        setSearch(event.target.value)
-                    }
-                    autoComplete="off"
-                />
-
-                <button type="submit">
-                    Search
-                </button>
-            </form>
-
-            <form
-                className="product-filters"
-                onSubmit={handleApply}
-            >
-                <select
-                    value={selectedCategory}
-                    onChange={handleCategoryChange}
-                >
-                    <option value="">
-                        All Categories
-                    </option>
-
-                    {categories.map((category) => (
-                        <option
-                            key={category._id}
-                            value={category._id}
-                        >
-                            {category.name}
-                        </option>
-                    ))}
-                </select>
-
-                {subcategories.length > 0 && (
-                    <select
-                        value={selectedSubcategory}
-                        onChange={(event) =>
-                            setSelectedSubcategory(
-                                event.target.value
-                            )
-                        }
+            <div className="products-layout">
+                <aside className="product-filter-sidebar">
+                    <form
+                        className="product-filter-card"
+                        onSubmit={handleApply}
                     >
-                        <option value="">
-                            All Types
-                        </option>
+                        <div className="product-filter-heading">
+                            <div>
+                                <h2>Filter</h2>
+                                <p>
+                                    {activeFilterCount > 0
+                                        ? `${activeFilterCount} active filter${
+                                              activeFilterCount > 1
+                                                  ? "s"
+                                                  : ""
+                                          }`
+                                        : "Refine your results"}
+                                </p>
+                            </div>
 
-                        {subcategories.map((subcategory) => (
-                            <option
-                                key={subcategory}
-                                value={subcategory}
+                            {activeFilterCount > 0 && (
+                                <span className="product-filter-count">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="product-filter-fields">
+                            <label>
+                                <span>Category</span>
+                                <select
+                                    value={selectedCategory}
+                                    onChange={handleCategoryChange}
+                                >
+                                    <option value="">
+                                        All Categories
+                                    </option>
+
+                                    {categories.map((category) => (
+                                        <option
+                                            key={category._id}
+                                            value={category._id}
+                                        >
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Type</span>
+                                <select
+                                    value={selectedSubcategory}
+                                    onChange={(event) =>
+                                        setSelectedSubcategory(
+                                            event.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="">
+                                        All Types
+                                    </option>
+
+                                    {subcategories.map((subcategory) => (
+                                        <option
+                                            key={subcategory}
+                                            value={subcategory}
+                                        >
+                                            {subcategory}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Brand</span>
+                                <select
+                                    value={selectedBrand}
+                                    onChange={(event) =>
+                                        setSelectedBrand(
+                                            event.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="">
+                                        All Brands
+                                    </option>
+
+                                    {brands.map((brand) => (
+                                        <option
+                                            key={brand}
+                                            value={brand}
+                                        >
+                                            {brand}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <div className="price-filter-row">
+                                <label>
+                                    <span>Min Price</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="₹ Min"
+                                        value={minPrice}
+                                        onChange={(event) =>
+                                            setMinPrice(
+                                                event.target.value
+                                            )
+                                        }
+                                    />
+                                </label>
+
+                                <label>
+                                    <span>Max Price</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="₹ Max"
+                                        value={maxPrice}
+                                        onChange={(event) =>
+                                            setMaxPrice(
+                                                event.target.value
+                                            )
+                                        }
+                                    />
+                                </label>
+                            </div>
+
+                            <label>
+                                <span>Sort By</span>
+                                <select
+                                    value={sort}
+                                    onChange={handleSortChange}
+                                >
+                                    <option value="">
+                                        Default
+                                    </option>
+                                    <option value="price_asc">
+                                        Price: Low to High
+                                    </option>
+                                    <option value="price_desc">
+                                        Price: High to Low
+                                    </option>
+                                    <option value="name_asc">
+                                        Name: A to Z
+                                    </option>
+                                    <option value="name_desc">
+                                        Name: Z to A
+                                    </option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div className="product-filter-actions">
+                            <button type="submit">
+                                Apply
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleClearFilters}
                             >
-                                {subcategory}
-                            </option>
-                        ))}
-                    </select>
-                )}
+                                Clear
+                            </button>
+                        </div>
+                    </form>
+                </aside>
 
-                {brands.length > 0 && (
-                    <select
-                        value={selectedBrand}
-                        onChange={(event) =>
-                            setSelectedBrand(event.target.value)
-                        }
+                <section className="products-catalog">
+                    <form
+                        className="product-search"
+                        onSubmit={handleApply}
                     >
-                        <option value="">
-                            All Brands
-                        </option>
-
-                        {brands.map((brand) => (
-                            <option
-                                key={brand}
-                                value={brand}
-                            >
-                                {brand}
-                            </option>
-                        ))}
-                    </select>
-                )}
-
-                <input
-                    type="number"
-                    min="0"
-                    placeholder="Min price"
-                    value={minPrice}
-                    onChange={(event) =>
-                        setMinPrice(event.target.value)
-                    }
-                />
-
-                <input
-                    type="number"
-                    min="0"
-                    placeholder="Max price"
-                    value={maxPrice}
-                    onChange={(event) =>
-                        setMaxPrice(event.target.value)
-                    }
-                />
-
-                <select
-                    value={sort}
-                    onChange={handleSortChange}
-                >
-                    <option value="">
-                        Sort By
-                    </option>
-                    <option value="price_asc">
-                        Price: Low to High
-                    </option>
-                    <option value="price_desc">
-                        Price: High to Low
-                    </option>
-                    <option value="name_asc">
-                        Name: A to Z
-                    </option>
-                    <option value="name_desc">
-                        Name: Z to A
-                    </option>
-                </select>
-
-                <button type="submit">
-                    Apply
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleClearFilters}
-                >
-                    Clear
-                </button>
-            </form>
-
-            <div className="catalog-filter-summary">
-                <span>
-                    Showing <strong>{products.length}</strong> of{" "}
-                    <strong>{pagination?.totalProducts || 0}</strong>
-                </span>
-
-                {selectedSubcategory && (
-                    <span>
-                        Type: <strong>{selectedSubcategory}</strong>
-                    </span>
-                )}
-            </div>
-
-            {search && (
-                <p className="search-info">
-                    Search results for:
-                    <strong> "{search}"</strong>
-                </p>
-            )}
-
-            {products.length === 0 ? (
-                <div className="no-products">
-                    <h2>No products found</h2>
-                    <p>
-                        Try changing your search or filters.
-                    </p>
-                </div>
-            ) : (
-                <div className="products-grid">
-                    {products.map((product) => (
-                        <ProductCard
-                            key={product._id}
-                            product={product}
+                        <input
+                            type="text"
+                            placeholder="Search products, brands or types..."
+                            value={search}
+                            onChange={(event) =>
+                                setSearch(event.target.value)
+                            }
+                            autoComplete="off"
                         />
-                    ))}
-                </div>
-            )}
 
-            {pagination && pagination.totalPages > 1 && (
-                <div className="pagination">
-                    <button
-                        type="button"
-                        disabled={!pagination.hasPreviousPage}
-                        onClick={() =>
-                            changePage(
-                                pagination.currentPage - 1
-                            )
-                        }
-                    >
-                        Previous
-                    </button>
+                        <button type="submit">
+                            Search
+                        </button>
+                    </form>
 
-                    <span>
-                        Page {pagination.currentPage} of{" "}
-                        {pagination.totalPages}
-                    </span>
+                    <div className="catalog-filter-summary">
+                        <span>
+                            Showing <strong>{products.length}</strong> of{" "}
+                            <strong>
+                                {pagination?.totalProducts || 0}
+                            </strong>
+                        </span>
 
-                    <button
-                        type="button"
-                        disabled={!pagination.hasNextPage}
-                        onClick={() =>
-                            changePage(
-                                pagination.currentPage + 1
-                            )
-                        }
-                    >
-                        Next
-                    </button>
-                </div>
-            )}
+                        {selectedSubcategory && (
+                            <span>
+                                Type: <strong>{selectedSubcategory}</strong>
+                            </span>
+                        )}
+                    </div>
+
+                    {search && (
+                        <p className="search-info">
+                            Search results for:
+                            <strong> "{search}"</strong>
+                        </p>
+                    )}
+
+                    {products.length === 0 ? (
+                        <div className="no-products">
+                            <h2>No products found</h2>
+                            <p>
+                                Try changing your search or filters.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="products-grid">
+                            {products.map((product) => (
+                                <ProductCard
+                                    key={product._id}
+                                    product={product}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {pagination && pagination.totalPages > 1 && (
+                        <div className="pagination">
+                            <button
+                                type="button"
+                                disabled={!pagination.hasPreviousPage}
+                                onClick={() =>
+                                    changePage(
+                                        pagination.currentPage - 1
+                                    )
+                                }
+                            >
+                                Previous
+                            </button>
+
+                            <span>
+                                Page {pagination.currentPage} of{" "}
+                                {pagination.totalPages}
+                            </span>
+
+                            <button
+                                type="button"
+                                disabled={!pagination.hasNextPage}
+                                onClick={() =>
+                                    changePage(
+                                        pagination.currentPage + 1
+                                    )
+                                }
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </section>
+            </div>
         </main>
     );
 }
