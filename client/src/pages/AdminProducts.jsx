@@ -23,7 +23,7 @@ function AdminProducts() {
     });
 
     // ============================================================
-    // FETCH PRODUCTS
+    // FETCH ALL PRODUCTS
     // ============================================================
 
     const fetchProducts = async () => {
@@ -35,19 +35,56 @@ function AdminProducts() {
                 return;
             }
 
-            const response = await fetch(
-                "http://localhost:5000/api/products?limit=50"
+            // The public catalogue is intentionally limited to 50 per
+            // request. Admin Manage Products needs the complete catalogue,
+            // so fetch every page and combine the results here.
+            const firstResponse = await fetch(
+                "http://localhost:5000/api/products?limit=50&page=1"
             );
 
-            const data = await response.json();
+            const firstData = await firstResponse.json();
 
-            if (!response.ok) {
+            if (!firstResponse.ok) {
                 throw new Error(
-                    data.message || "Failed to fetch products"
+                    firstData.message || "Failed to fetch products"
                 );
             }
 
-            setProducts(data.products || []);
+            const allProducts = [
+                ...(firstData.products || [])
+            ];
+
+            const totalPages =
+                firstData.pagination?.totalPages || 1;
+
+            if (totalPages > 1) {
+                const remainingRequests = [];
+
+                for (let page = 2; page <= totalPages; page += 1) {
+                    remainingRequests.push(
+                        fetch(
+                            `http://localhost:5000/api/products?limit=50&page=${page}`
+                        )
+                    );
+                }
+
+                const remainingResponses =
+                    await Promise.all(remainingRequests);
+
+                for (const response of remainingResponses) {
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            data.message || "Failed to fetch products"
+                        );
+                    }
+
+                    allProducts.push(...(data.products || []));
+                }
+            }
+
+            setProducts(allProducts);
         } catch (requestError) {
             console.error("Fetch products error:", requestError);
             setError(requestError.message);
@@ -354,70 +391,30 @@ function AdminProducts() {
                 >
                     <div className="product-form-group">
                         <label>Product Name</label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={form.name}
-                            onChange={handleChange}
-                            placeholder="Enter product name"
-                            required
-                        />
+                        <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="Enter product name" required />
                     </div>
 
                     <div className="product-form-group">
                         <label>Brand</label>
-                        <input
-                            type="text"
-                            name="brand"
-                            value={form.brand}
-                            onChange={handleChange}
-                            placeholder="Enter brand name"
-                        />
+                        <input type="text" name="brand" value={form.brand} onChange={handleChange} placeholder="Enter brand name" />
                     </div>
 
                     <div className="product-form-group">
                         <label>Price</label>
-                        <input
-                            type="number"
-                            name="price"
-                            value={form.price}
-                            onChange={handleChange}
-                            min="0"
-                            placeholder="Enter price"
-                            required
-                        />
+                        <input type="number" name="price" value={form.price} onChange={handleChange} min="0" placeholder="Enter price" required />
                     </div>
 
                     <div className="product-form-group">
                         <label>Stock</label>
-                        <input
-                            type="number"
-                            name="stock"
-                            value={form.stock}
-                            onChange={handleChange}
-                            min="0"
-                            placeholder="Enter stock quantity"
-                            required
-                        />
+                        <input type="number" name="stock" value={form.stock} onChange={handleChange} min="0" placeholder="Enter stock quantity" required />
                     </div>
 
                     <div className="product-form-group">
                         <label>Category</label>
-                        <select
-                            name="category"
-                            value={form.category}
-                            onChange={handleChange}
-                            required
-                        >
-                            <option value="">
-                                Select Category
-                            </option>
-
+                        <select name="category" value={form.category} onChange={handleChange} required>
+                            <option value="">Select Category</option>
                             {categories.map((category) => (
-                                <option
-                                    key={category._id}
-                                    value={category._id}
-                                >
+                                <option key={category._id} value={category._id}>
                                     {category.name}
                                 </option>
                             ))}
@@ -426,54 +423,26 @@ function AdminProducts() {
 
                     <div className="product-form-group">
                         <label>Product Type / Subcategory</label>
-                        <input
-                            type="text"
-                            name="subcategory"
-                            value={form.subcategory}
-                            onChange={handleChange}
-                            placeholder="e.g. Shirts, Pants, Sneakers"
-                        />
+                        <input type="text" name="subcategory" value={form.subcategory} onChange={handleChange} placeholder="e.g. Shirts, Pants, Sneakers" />
                     </div>
 
                     <div className="product-form-group">
                         <label>Image URL</label>
-                        <input
-                            type="text"
-                            name="images"
-                            value={form.images}
-                            onChange={handleChange}
-                            placeholder="https://..."
-                        />
+                        <input type="text" name="images" value={form.images} onChange={handleChange} placeholder="https://..." />
                     </div>
 
                     <div className="product-form-group product-form-full">
                         <label>Description</label>
-                        <textarea
-                            name="description"
-                            value={form.description}
-                            onChange={handleChange}
-                            placeholder="Enter product description"
-                            rows="5"
-                            required
-                        />
+                        <textarea name="description" value={form.description} onChange={handleChange} placeholder="Enter product description" rows="5" required />
                     </div>
 
                     <div className="product-form-actions">
-                        <button
-                            type="submit"
-                            className="product-save-button"
-                        >
-                            {editingProductId
-                                ? "Update Product"
-                                : "Add Product"}
+                        <button type="submit" className="product-save-button">
+                            {editingProductId ? "Update Product" : "Add Product"}
                         </button>
 
                         {editingProductId && (
-                            <button
-                                type="button"
-                                className="product-cancel-button"
-                                onClick={resetForm}
-                            >
+                            <button type="button" className="product-cancel-button" onClick={resetForm}>
                                 Cancel Edit
                             </button>
                         )}
@@ -495,29 +464,17 @@ function AdminProducts() {
                 {products.length === 0 ? (
                     <div className="admin-products-empty">
                         <h3>No products found.</h3>
-                        <p>
-                            Add your first product using the form above.
-                        </p>
+                        <p>Add your first product using the form above.</p>
                     </div>
                 ) : (
                     <div className="admin-products-grid">
                         {products.map((product) => (
-                            <div
-                                className="admin-product-card"
-                                key={product._id}
-                            >
+                            <div className="admin-product-card" key={product._id}>
                                 <div className="admin-product-image">
                                     {product.images?.[0] ? (
-                                        <img
-                                            src={product.images[0]}
-                                            alt={product.name}
-                                            loading="lazy"
-                                            decoding="async"
-                                        />
+                                        <img src={product.images[0]} alt={product.name} loading="lazy" decoding="async" />
                                     ) : (
-                                        <div className="no-product-image">
-                                            No Image
-                                        </div>
+                                        <div className="no-product-image">No Image</div>
                                     )}
                                 </div>
 
@@ -525,82 +482,40 @@ function AdminProducts() {
                                     <div className="admin-product-top">
                                         <div>
                                             <h3>{product.name}</h3>
-                                            <p className="product-brand">
-                                                {product.brand ||
-                                                    "No brand"}
-                                            </p>
+                                            <p className="product-brand">{product.brand || "No brand"}</p>
                                         </div>
 
-                                        <span
-                                            className={
-                                                product.stock > 0
-                                                    ? "product-stock-badge in-stock"
-                                                    : "product-stock-badge out-of-stock"
-                                            }
-                                        >
-                                            {product.stock > 0
-                                                ? "In Stock"
-                                                : "Out of Stock"}
+                                        <span className={product.stock > 0 ? "product-stock-badge in-stock" : "product-stock-badge out-of-stock"}>
+                                            {product.stock > 0 ? "In Stock" : "Out of Stock"}
                                         </span>
                                     </div>
 
-                                    <p className="product-category">
-                                        {product.category?.name ||
-                                            "No category"}
-                                    </p>
+                                    <p className="product-category">{product.category?.name || "No category"}</p>
 
                                     {product.subcategory && (
-                                        <p className="product-category">
-                                            {product.subcategory}
-                                        </p>
+                                        <p className="product-category">{product.subcategory}</p>
                                     )}
 
-                                    <p className="product-description">
-                                        {product.description ||
-                                            "No description available."}
-                                    </p>
+                                    <p className="product-description">{product.description || "No description available."}</p>
 
                                     <div className="product-meta">
                                         <div>
                                             <span>PRICE</span>
-                                            <strong>
-                                                ₹
-                                                {Number(
-                                                    product.price
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </strong>
+                                            <strong>₹{Number(product.price).toLocaleString("en-IN")}</strong>
                                         </div>
 
                                         <div>
                                             <span>STOCK</span>
-                                            <strong>
-                                                {product.stock}
-                                            </strong>
+                                            <strong>{product.stock}</strong>
                                         </div>
                                     </div>
 
                                     <div className="product-card-actions">
-                                        <button
-                                            type="button"
-                                            className="product-edit-button"
-                                            onClick={() =>
-                                                handleEdit(product)
-                                            }
-                                        >
+                                        <button type="button" className="product-edit-button" onClick={() => handleEdit(product)}>
                                             Edit
                                         </button>
 
-                                        <button
-                                            type="button"
-                                            className="product-delete-button"
-                                            onClick={() =>
-                                                handleDelete(
-                                                    product._id
-                                                )
-                                            }
-                                        >
+                                        <button type="button" className="product-delete-button" onClick={() => handleDelete(product._id)}>
                                             Delete
                                         </button>
                                     </div>
