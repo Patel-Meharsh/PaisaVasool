@@ -141,19 +141,27 @@ const getProducts = async (req, res) => {
 
         const filter = { isActive: true };
 
-        if (search) {
+        if (search && search.trim()) {
+            const searchRegex = new RegExp(escapeRegex(search.trim()), "i");
             filter.$or = [
-                { name: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-                { brand: { $regex: search, $options: "i" } }
+                { name: searchRegex },
+                { description: searchRegex },
+                { brand: searchRegex }
             ];
         }
 
-        if (category) filter.category = category;
+        // Product.category is an ObjectId. Mongoose's find/countDocuments
+        // casts string query parameters automatically, but aggregation does
+        // not. Cast it explicitly so the count and returned product list use
+        // the exact same filter and never disagree (e.g. 31 counted, 0 shown).
+        if (category && category.trim()) {
+            if (!mongoose.Types.ObjectId.isValid(category.trim())) {
+                return res.status(400).json({ message: "Invalid category ID" });
+            }
+            filter.category = new mongoose.Types.ObjectId(category.trim());
+        }
 
         // Brand matching is case-insensitive and exact after trimming.
-        // This prevents values such as "Apple", "apple" and " Apple "
-        // from behaving as different brands.
         if (brand && brand.trim()) {
             filter.brand = {
                 $regex: `^${escapeRegex(brand.trim())}$`,
@@ -169,30 +177,29 @@ const getProducts = async (req, res) => {
             };
         }
 
-        if (minPrice !== undefined) {
+        if (minPrice !== undefined && minPrice !== "") {
             filter.price = {
                 ...filter.price,
                 $gte: Number(minPrice)
             };
         }
 
-        if (maxPrice !== undefined) {
+        if (maxPrice !== undefined && maxPrice !== "") {
             filter.price = {
                 ...filter.price,
                 $lte: Number(maxPrice)
             };
         }
 
-        const pageNumber = Math.max(Number(page), 1);
+        const pageNumber = Math.max(Number(page) || 1, 1);
         const limitNumber = Math.min(
-            Math.max(Number(limit), 1),
+            Math.max(Number(limit) || 10, 1),
             50
         );
 
         const totalProducts = await Product.countDocuments(filter);
         const totalPages = Math.ceil(totalProducts / limitNumber);
 
-        // Explicit user-selected sorting keeps its existing behaviour.
         if (sort) {
             const sortOption = {
                 price_asc: { price: 1, name: 1, _id: 1 },
@@ -200,6 +207,10 @@ const getProducts = async (req, res) => {
                 name_asc: { name: 1, _id: 1 },
                 name_desc: { name: -1, _id: 1 }
             }[sort];
+
+            if (!sortOption) {
+                return res.status(400).json({ message: "Invalid sort option" });
+            }
 
             const products = await Product.find(filter, {
                 name: 1,
@@ -231,8 +242,8 @@ const getProducts = async (req, res) => {
         }
 
         // Default catalogue order is deterministic and type-grouped.
-        // This prevents products from appearing in insertion/createdAt order
-        // such as clothing -> electronics -> clothing -> electronics.
+        // The category filter above is explicitly cast to ObjectId so the
+        // aggregation matches the same documents counted above.
         const products = await Product.aggregate([
             { $match: filter },
             {
@@ -352,21 +363,21 @@ const getProducts = async (req, res) => {
                                     case: {
                                         $regexMatch: {
                                             input: "$name",
-                                            regex: "shirt",
-                                            options: "i"
-                                        }
-                                    },
-                                    then: 2
-                                },
-                                {
-                                    case: {
-                                        $regexMatch: {
-                                            input: "$name",
                                             regex: "t-?shirt",
                                             options: "i"
                                         }
                                     },
                                     then: 3
+                                },
+                                {
+                                    case: {
+                                        $regexMatch: {
+                                            input: "$name",
+                                            regex: "shirt",
+                                            options: "i"
+                                        }
+                                    },
+                                    then: 2
                                 },
                                 {
                                     case: {
