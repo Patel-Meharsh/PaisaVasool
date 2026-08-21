@@ -39,6 +39,12 @@ const validateProductQuery = (req, res, next) => {
                 message: "Invalid category ID"
             });
         }
+
+        // Important: the catalogue default-order query uses MongoDB
+        // aggregation. Aggregation does not automatically cast a string
+        // category ID to ObjectId like Model.find() does. Normalize it
+        // here once so both query paths behave identically.
+        req.query.category = new mongoose.Types.ObjectId(category);
     }
 
     const allowedSorts = [
